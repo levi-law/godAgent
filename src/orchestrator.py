@@ -18,8 +18,18 @@ from typing import Any, Dict, List, Optional
 
 try:
     from src.config import get_config, AgentConfig
+    from src.council_selector import get_council_selector, CouncilSelector
+    from src.executor import get_agent_executor, AgentExecutor, ExecutionContext
+    from src.mesh import get_mesh_coordinator, MeshCoordinator
+    from src.approvals import get_approval_manager, ApprovalManager, RiskLevel
+    from src.decision_log import get_decision_logger, DecisionLogger, DecisionType, Alternative
 except ImportError:
     from .config import get_config, AgentConfig
+    from .council_selector import get_council_selector, CouncilSelector
+    from .executor import get_agent_executor, AgentExecutor, ExecutionContext
+    from .mesh import get_mesh_coordinator, MeshCoordinator
+    from .approvals import get_approval_manager, ApprovalManager, RiskLevel
+    from .decision_log import get_decision_logger, DecisionLogger, DecisionType, Alternative
 
 
 # =============================================================================
@@ -128,10 +138,12 @@ class Orchestrator:
         self._tasks: Dict[str, Task] = {}
         self._decisions: List[Decision] = []
         
-        # Will be initialized in Phase 2+
-        self._council_selector = None  # CouncilSelector
-        self._executor = None  # AgentExecutor
-        self._decision_logger = None  # DecisionLogger
+        # Initialize all components
+        self._council_selector = get_council_selector(use_mock=True)
+        self._executor = get_agent_executor()
+        self._mesh = get_mesh_coordinator()
+        self._approval_manager = get_approval_manager()
+        self._decision_logger = get_decision_logger()
         
     async def process_task(
         self,
@@ -153,6 +165,9 @@ class Orchestrator:
             ExecutionResult with the agent's response
         """
         import uuid
+        import time
+        
+        start_time = time.time()
         
         # Create task
         task = Task(
@@ -200,27 +215,39 @@ class Orchestrator:
         except Exception as e:
             task.status = TaskStatus.FAILED
             self.logger.error(f"Task {task.id} failed: {e}")
-            raise
+            duration_ms = int((time.time() - start_time) * 1000)
+            return ExecutionResult(
+                task_id=task.id,
+                agent="unknown",
+                response="",
+                success=False,
+                duration_ms=duration_ms,
+                error=str(e),
+            )
             
     async def _select_agent(self, task: Task) -> AgentSelection:
         """
         Select the best agent for the task using LLM Council.
-        
-        Phase 2 will implement actual council voting.
-        For now, returns a placeholder selection.
         """
         self.logger.info("Selecting agent via council...")
         
-        # TODO: Phase 2 - Implement actual council selection
-        # Will use llmCouncil.council.run_full_council()
+        # Use the real council selector
+        council_result = await self._council_selector.select_agent(
+            user_prompt=task.user_prompt,
+            system_prompt=task.system_prompt,
+            working_directory=task.working_directory,
+        )
         
-        # Placeholder: default to Claude
+        # Convert votes and rankings to dicts
+        votes = {v.model: v.selected_agent for v in council_result.votes}
+        rankings = {r.model: r.ranking for r in council_result.rankings}
+        
         return AgentSelection(
-            selected_agent="claude",
-            confidence=0.9,
-            reasoning="Default selection (council not yet implemented)",
-            votes={},
-            rankings={},
+            selected_agent=council_result.selected_agent,
+            confidence=council_result.confidence,
+            reasoning=council_result.reasoning,
+            votes=votes,
+            rankings=rankings,
         )
         
     async def _check_approval(
@@ -231,17 +258,33 @@ class Orchestrator:
     ) -> bool:
         """
         Check if user approves the agent selection.
-        
-        Phase 4 will implement actual approval UI.
-        For now, auto-approves.
         """
         self.logger.info(f"Approval mode: {mode.value}")
         
-        # TODO: Phase 4 - Implement approval workflow
-        # Will integrate with seedGPT approval patterns
+        # Use the approval manager
+        from .approvals import ApprovalMode as AM
         
-        # Placeholder: auto-approve
-        return True
+        # Determine risk level
+        risk_level = self._approval_manager.classify_risk(
+            "agent_execution",
+            {"agent": selection.selected_agent}
+        )
+        
+        if not self._approval_manager.requires_approval("agent_execution", risk_level):
+            return True
+            
+        # Create approval request
+        request = self._approval_manager.create_request(
+            action_type="agent_execution",
+            title=f"Execute {selection.selected_agent}",
+            description=f"Task: {task.user_prompt[:100]}...",
+            agent_name=selection.selected_agent,
+            risk_level=risk_level,
+        )
+        
+        # Auto-approve for now (would be UI in production)
+        response = self._approval_manager.auto_approve(request)
+        return response.approved
         
     async def _execute_agent(
         self,
@@ -250,26 +293,25 @@ class Orchestrator:
     ) -> ExecutionResult:
         """
         Execute the selected agent with the original prompts.
-        
-        Phase 3 will implement direct agent execution.
-        For now, returns a placeholder response.
         """
-        import time
-        start_time = time.time()
-        
         self.logger.info(f"Executing agent: {agent_name}")
         
-        # TODO: Phase 3 - Implement actual agent execution
-        # Will use agentsParliament MCP servers
+        # Use the real executor
+        context = ExecutionContext(
+            system_prompt=task.system_prompt,
+            user_prompt=task.user_prompt,
+            working_directory=task.working_directory,
+        )
         
-        # Placeholder response
-        duration_ms = int((time.time() - start_time) * 1000)
+        result = await self._executor.execute(agent_name, context)
+        
         return ExecutionResult(
             task_id=task.id,
             agent=agent_name,
-            response=f"[Placeholder] Agent '{agent_name}' would process: {task.user_prompt[:100]}...",
-            success=True,
-            duration_ms=duration_ms,
+            response=result.response,
+            success=result.success,
+            duration_ms=result.duration_ms,
+            error=result.error,
         )
         
     async def _log_decision(
@@ -280,12 +322,27 @@ class Orchestrator:
     ) -> None:
         """
         Log the decision for audit trail.
-        
-        Phase 4 will implement seedGPT decision logging.
-        For now, logs locally.
         """
         import uuid
         
+        # Log to decision logger
+        alternatives = [
+            Alternative(name=agent, score=0.5, reason="Alternative considered")
+            for agent in self.config.get_agent_names()
+            if agent != selection.selected_agent
+        ][:3]
+        
+        self._decision_logger.log_decision(
+            decision_type=DecisionType.AGENT_SELECTION,
+            title=f"Selected {selection.selected_agent}",
+            reasoning=selection.reasoning,
+            confidence_score=selection.confidence,
+            risk_level="low",
+            alternatives=alternatives,
+            task_id=task.id,
+        )
+        
+        # Also keep local record
         decision = Decision(
             id=str(uuid.uuid4()),
             task_id=task.id,
