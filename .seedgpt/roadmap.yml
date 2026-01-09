@@ -1,0 +1,247 @@
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║                         GodAgent - Roadmap                                 ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+version: "1.0"
+total_duration: "10 weeks"
+
+# =============================================================================
+# TIMELINE OVERVIEW
+# =============================================================================
+#
+#  Week:  1    2    3    4    5    6    7    8    9   10
+#         ├────┴────┼────┴────┼────┴────┼────┼────┴────┼────┤
+#         │ PHASE 1 │ PHASE 2 │ PHASE 3 │ P4 │ PHASE 5 │ P6 │
+#         │Foundation│ Council │Full-Mesh│Ctrl│ API+UI  │TDD │
+#         └─────────┴─────────┴─────────┴────┴─────────┴────┘
+#
+#  Key: Own Code = GodAgent, Dep = Feature added to dependent project
+#
+
+# =============================================================================
+# PHASE 1: FOUNDATION
+# =============================================================================
+phase_1:
+  name: "Foundation"
+  status: "planned"
+  duration: "2 weeks"
+  
+  goals:
+    - "Set up GodAgent project structure"
+    - "Integrate with llmCouncil for OpenRouter access"
+    - "Create agent registry from agentsParliament"
+    
+  own_code:
+    - "GodAgent project scaffolding"
+    - "Agent registry config (agents and capabilities)"
+    - "Orchestrator skeleton"
+    
+  dependencies_used:
+    - project: "llmCouncil"
+      import: "openrouter.py for parallel LLM queries"
+    - project: "agentsParliament"
+      import: "MCP server configurations"
+
+# =============================================================================
+# PHASE 2: COUNCIL & SELECTION
+# =============================================================================
+phase_2:
+  name: "Council & Selection"
+  status: "planned"
+  duration: "2 weeks"
+  
+  goals:
+    - "Implement agent selection via LLM council"
+    - "Build task analyzer for capability matching"
+    
+  own_code:
+    - "Task analyzer (determine requirements)"
+    - "Agent-capability matching logic"
+    - "Selection orchestration"
+    
+  dependencies_used:
+    - project: "llmCouncil"
+      import: "council.py (stage1, stage2, stage3)"
+      
+  features_to_add_in_dependencies:
+    - project: "llmCouncil"
+      feature: "Agent selection mode (not just response synthesis)"
+      reason: "Council needs to select an agent, not just synthesize answers"
+
+# =============================================================================
+# PHASE 3: FULL-MESH EXECUTION
+# =============================================================================
+phase_3:
+  name: "Full-Mesh Execution"
+  status: "planned"
+  duration: "2 weeks"
+  
+  goals:
+    - "Enable direct agent execution with original prompts"
+    - "Enable inter-agent calls (any agent → any agent)"
+    
+  own_code:
+    - "Direct execution flow (pass prompts as-is)"
+    - "Response collection and formatting"
+    
+  dependencies_used:
+    - project: "agentsParliament"
+      import: "MCP servers for agent execution"
+    - project: "SuperAI"
+      import: "judge.py for response evaluation"
+      
+  features_to_add_in_dependencies:
+    - project: "agentsParliament"
+      features:
+        - "Agent discovery endpoint (list available agents)"
+        - "Inter-agent delegation protocol (agent A calls agent B)"
+    - project: "SuperAI"
+      features:
+        - "Agent selection judge (evaluate which agent is best, not response)"
+
+# =============================================================================
+# PHASE 4: HUMAN CONTROLS
+# =============================================================================
+phase_4:
+  name: "Human Controls"
+  status: "planned"
+  duration: "1 week"
+  
+  goals:
+    - "Implement decision logging"
+    - "Add approval workflow"
+    - "Build feedback system"
+    
+  own_code:
+    - "Approval mode configuration"
+    - "Decision formatting for GodAgent actions"
+    
+  dependencies_used:
+    - project: "seedGPT"
+      import: "DecisionLogger, UserFeedback, approval patterns"
+      
+  features_to_add_in_dependencies:
+    - project: "seedGPT"
+      features:
+        - "GodAgent-specific decision types (AGENT_SELECTION, AGENT_EXECUTION)"
+        - "Approval gate for external agent calls"
+
+# =============================================================================
+# PHASE 5: API & UI
+# =============================================================================
+phase_5:
+  name: "API & UI"
+  status: "planned"
+  duration: "2 weeks"
+  
+  goals:
+    - "Build FastAPI endpoints"
+    - "Create or extend frontend"
+    
+  own_code:
+    - "FastAPI app with OpenAI-compatible endpoints"
+    - "/v1/chat/completions (main task submission)"
+    - "/v1/agents (list available agents)"
+    - "/v1/decisions (decision history)"
+    
+  dependencies_used:
+    - project: "llmCouncil"
+      option: "Extend existing React frontend"
+    - project: "SuperAI"
+      reference: "OpenAI-compatible API pattern"
+
+# =============================================================================
+# PHASE 6: AGILE TDD WORKFLOW
+# =============================================================================
+phase_6:
+  name: "Agile TDD Workflow"
+  status: "planned"
+  duration: "1 week"
+  
+  goals:
+    - "Implement 9-phase workflow for GodAgent development"
+    
+  own_code:
+    - "Workflow runner for GodAgent"
+    
+  dependencies_used:
+    - project: "seedGPT"
+      import: "Agile TDD method"
+    
+  workflow_phases:
+    step_1:
+      name: "Status Recap"
+      tasks:
+        - "Evaluate client communication"
+        - "Check/update roadmap and PRD"
+        - "Check git status, commit if needed"
+        - "Update sprint plan based on current state"
+        
+    step_2:
+      name: "Planning"
+      tasks:
+        - "Plan next sprint (effort x2)"
+        - "Separate into dev and test workers"
+        - "Tester creates black-box tests first"
+        - "Dev implements feature with unit tests"
+        - "Use feature-name/dev and feature-name/test branches"
+        
+    step_3:
+      name: "Implementation"
+      sub_steps:
+        - "3.a. Each worker (dev/test) implements tasks and passes local tests"
+        - "3.b. Update plans"
+        
+    step_4:
+      name: "Integration"
+      tasks:
+        - "Merge dev + test into feature-name branch"
+        - "Execute tests"
+        - "Debug until all tests pass"
+        
+    step_5:
+      name: "Merge"
+      sub_steps:
+        - "5.a. Merge feature-name to main, run full test cycle, debug until green"
+        - "5.b. Update plans"
+        
+    step_6:
+      name: "Deploy"
+      sub_steps:
+        - "6.a. Deploy, test post-deployment"
+        - "6.b. Update plans"
+        
+    step_7:
+      name: "Present Results"
+      tasks:
+        - "Meet with client"
+        - "Present and analyze results"
+        
+    step_8:
+      name: "Gather Inputs"
+      tasks:
+        - "Collect new inputs and record them"
+        
+    step_9:
+      name: "Update Documentation"
+      tasks:
+        - "Update docs, roadmap, PRD"
+        - "Update client communication"
+        - "Update sprint plan for next cycle"
+
+# =============================================================================
+# SUMMARY: FEATURES TO ADD IN DEPENDENT PROJECTS
+# =============================================================================
+dependent_project_features:
+  llmCouncil:
+    - "Agent selection mode (vote for best agent, not best response)"
+    
+  agentsParliament:
+    - "Agent discovery endpoint"
+    - "Inter-agent delegation protocol"
+    
+  SuperAI:
+    - "Agent selection judge"
+    
+  seedGPT:
+    - "GodAgent-specific decision types"
+    - "Approval gate for external agent calls"

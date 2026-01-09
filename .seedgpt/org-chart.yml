@@ -1,0 +1,89 @@
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║                    GodAgent - Organizational Chart                        ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+version: "1.0"
+
+# =============================================================================
+# FULL-MESH TOPOLOGY (Every agent can call every other agent)
+# =============================================================================
+#
+#                      ┌─────────┐
+#              ┌───────│ CLAUDE  │───────┐
+#              │       └────┬────┘       │
+#              │            │            │
+#         ┌────▼────┐       │       ┌────▼────┐
+#         │ GEMINI  │◄──────┼──────►│  AIDER  │
+#         └────┬────┘       │       └────┬────┘
+#              │            │            │
+#              │       ┌────▼────┐       │
+#              └──────►│  GROK   │◄──────┘
+#                      └────┬────┘
+#                           │
+#              ┌────────────┼────────────┐
+#         ┌────▼────┐       │       ┌────▼────┐
+#         │ CODEX   │◄──────┴──────►│ GOOSE   │
+#         └─────────┘               └─────────┘
+#
+# NOTE: This is NOT a fixed hierarchy. The "god agent" role is dynamic -
+# selected by LLM council for each task based on requirements.
+
+# =============================================================================
+# LLM COUNCIL (Selection Layer)
+# =============================================================================
+council:
+  role: "Selects which agent leads each task via voting"
+  members:
+    - model: "gpt-5.1"
+      vote_weight: 1
+    - model: "gemini-3-pro"
+      vote_weight: 1
+    - model: "claude-sonnet-4.5"
+      vote_weight: 1
+    - model: "grok-4"
+      vote_weight: 1
+  chairman: "gemini-3-pro"
+
+# =============================================================================
+# SPECIALIST AGENTS (Full-Mesh)
+# =============================================================================
+agents:
+  claude:
+    can_call: ["gemini", "aider", "codex", "goose", "grok", "gpt"]
+    best_for: ["deep reasoning", "complex coding", "long documents"]
+    
+  gemini:
+    can_call: ["claude", "aider", "codex", "goose", "grok", "gpt"]
+    best_for: ["large context", "research with search", "multimodal"]
+    
+  gpt:
+    can_call: ["claude", "gemini", "aider", "codex", "goose", "grok"]
+    best_for: ["broad tasks", "multimodal", "plugins"]
+    
+  grok:
+    can_call: ["claude", "gemini", "aider", "codex", "goose", "gpt"]
+    best_for: ["real-time info", "trends", "fast responses"]
+    
+  aider:
+    can_call: ["claude", "gemini", "codex", "goose", "grok", "gpt"]
+    best_for: ["git operations", "code editing", "refactoring"]
+    
+  codex:
+    can_call: ["claude", "gemini", "aider", "goose", "grok", "gpt"]
+    best_for: ["sandboxed execution", "shell commands", "quick scripts"]
+    
+  goose:
+    can_call: ["claude", "gemini", "aider", "codex", "grok", "gpt"]
+    best_for: ["multi-step workflows", "autonomous tasks"]
+
+# =============================================================================
+# SUPPORT SYSTEMS
+# =============================================================================
+support:
+  decision_logger:
+    role: "Track all agent decisions for audit"
+    
+  user_feedback:
+    role: "Collect human feedback on decisions"
+    
+  approval_gate:
+    role: "Human approval for high-risk actions"

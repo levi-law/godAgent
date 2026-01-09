@@ -1,0 +1,173 @@
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║                      GodAgent - Agent Registry                             ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+# Defines all available agents, their capabilities, and API configurations
+
+version: "1.0"
+
+# =============================================================================
+# AVAILABLE AGENTS
+# =============================================================================
+agents:
+  claude:
+    display_name: "Claude"
+    type: "api"
+    provider: "anthropic"
+    api_key_env: "ANTHROPIC_API_KEY"
+    models:
+      - "claude-sonnet-4-20250514"
+      - "claude-3-5-sonnet-20241022"
+      - "claude-3-opus-20240229"
+    default_model: "claude-sonnet-4-20250514"
+    capabilities:
+      - "deep_reasoning"
+      - "coding"
+      - "long_context"
+      - "analysis"
+      - "writing"
+    strengths:
+      - "Complex reasoning and analysis"
+      - "Code generation and review"
+      - "200K token context window"
+    mcp_server: "claude_mcp_server"
+    
+  gemini:
+    display_name: "Gemini"
+    type: "api"
+    provider: "google"
+    api_key_env: "GOOGLE_API_KEY"
+    models:
+      - "gemini-2.5-pro"
+      - "gemini-2.0-flash"
+    default_model: "gemini-2.5-pro"
+    capabilities:
+      - "research"
+      - "multimodal"
+      - "search_grounding"
+      - "ultra_long_context"
+    strengths:
+      - "1M+ token context window"
+      - "Google Search grounding for real-time info"
+      - "Multimodal (images, video, audio)"
+    mcp_server: "gemini_mcp_server"
+    
+  gpt:
+    display_name: "GPT"
+    type: "openrouter"
+    provider: "openai"
+    models:
+      - "openai/gpt-4.1"
+      - "openai/gpt-4.1-mini"
+      - "openai/o1"
+    default_model: "openai/gpt-4.1"
+    capabilities:
+      - "general"
+      - "coding"
+      - "multimodal"
+      - "reasoning"
+    strengths:
+      - "Broad general capabilities"
+      - "Strong coding abilities"
+      - "Multimodal understanding"
+    mcp_server: null  # Uses OpenRouter
+    
+  grok:
+    display_name: "Grok"
+    type: "openrouter"
+    provider: "xai"
+    models:
+      - "x-ai/grok-3"
+      - "x-ai/grok-3-mini"
+    default_model: "x-ai/grok-3"
+    capabilities:
+      - "realtime_info"
+      - "trends"
+      - "fast_responses"
+      - "humor"
+    strengths:
+      - "Real-time information access"
+      - "Current trends and news"
+      - "Fast response times"
+    mcp_server: null  # Uses OpenRouter
+    
+  aider:
+    display_name: "Aider"
+    type: "cli"
+    command: "aider"
+    capabilities:
+      - "git_integration"
+      - "code_editing"
+      - "auto_commits"
+      - "refactoring"
+    strengths:
+      - "Git-aware code editing"
+      - "Automatic commits with good messages"
+      - "Multi-file refactoring"
+    mcp_server: "aider_mcp_server"
+    requires_working_directory: true
+    
+  codex:
+    display_name: "Codex CLI"
+    type: "cli"
+    command: "codex"
+    capabilities:
+      - "sandboxed_execution"
+      - "shell_commands"
+      - "autonomous_coding"
+    strengths:
+      - "Sandboxed code execution"
+      - "Shell command running"
+      - "Autonomous task completion"
+    mcp_server: "codex_mcp_server"
+    requires_working_directory: true
+    
+  goose:
+    display_name: "Goose"
+    type: "cli"
+    command: "goose"
+    capabilities:
+      - "multistep_workflows"
+      - "autonomous_tasks"
+      - "recipes"
+    strengths:
+      - "Complex multi-step workflows"
+      - "Pre-defined recipes"
+      - "Autonomous task completion"
+    mcp_server: "goose_mcp_server"
+    requires_working_directory: true
+
+# =============================================================================
+# CAPABILITY DEFINITIONS
+# =============================================================================
+capability_definitions:
+  deep_reasoning:
+    description: "Complex logical reasoning and analysis"
+    keywords: ["analyze", "reason", "deduce", "evaluate", "compare"]
+    
+  coding:
+    description: "Writing, reviewing, and debugging code"
+    keywords: ["code", "program", "implement", "debug", "fix", "script"]
+    
+  research:
+    description: "Finding and synthesizing information"
+    keywords: ["research", "find", "search", "lookup", "discover"]
+    
+  git_integration:
+    description: "Git operations and version control"
+    keywords: ["git", "commit", "branch", "merge", "pull request"]
+    
+  realtime_info:
+    description: "Access to current/real-time information"
+    keywords: ["current", "latest", "today", "news", "trending"]
+    
+  multimodal:
+    description: "Processing images, video, or audio"
+    keywords: ["image", "picture", "video", "audio", "visual"]
+    
+  sandboxed_execution:
+    description: "Running code in isolated environment"
+    keywords: ["run", "execute", "test", "sandbox"]
+    
+  multistep_workflows:
+    description: "Complex multi-step task automation"
+    keywords: ["workflow", "automate", "pipeline", "steps"]

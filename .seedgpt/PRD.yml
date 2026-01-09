@@ -1,0 +1,183 @@
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║                    GodAgent - Product Requirements Document               ║
+# ║                    "One Agent to Rule Them All"                           ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+version: "1.0"
+status: draft
+last_updated: "2026-01-09"
+
+# =============================================================================
+# VISION
+# =============================================================================
+vision:
+  summary: |
+    GodAgent is a full-mesh AI orchestration system where any agent can call any other agent.
+    An LLM council dynamically selects the best agent to lead each task, then that agent
+    is called DIRECTLY with the original prompts.
+
+  architecture_diagram: |
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │                              USER TASK                                   │
+    │                    (system_prompt + user_prompt)                         │
+    └─────────────────────────────────────────────────────────────────────────┘
+                                       │
+                                       ▼
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │                    LLM COUNCIL (Dynamic Selection)                       │
+    │   ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐                    │
+    │   │ GPT-5.1 │  │ Gemini  │  │ Claude  │  │  Grok   │ → Vote → Select   │
+    │   └─────────┘  └─────────┘  └─────────┘  └─────────┘                    │
+    └─────────────────────────────────────────────────────────────────────────┘
+                                       │
+                          ┌────────────┴─────────────┐
+                          │    (Optional Approval)   │
+                          └────────────┬─────────────┘
+                                       ▼
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │                    DIRECT AGENT EXECUTION                                │
+    │   Selected agent receives EXACT original system_prompt + user_prompt     │
+    │   No wrapper, no modification - direct API call                          │
+    └─────────────────────────────────────────────────────────────────────────┘
+                                       │
+                                       ▼
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │                      FULL-MESH AGENT NETWORK                             │
+    │   If agent needs help, it can call other agents directly:                │
+    │        Claude ◄──────► Gemini ◄──────► Aider                            │
+    │           ▲               ▲               ▲                              │
+    │           ▼               ▼               ▼                              │
+    │        Codex ◄───────► Goose ◄───────► Grok                             │
+    └─────────────────────────────────────────────────────────────────────────┘
+
+  core_principles:
+    - "FULL-MESH: Any agent can call any other agent"
+    - "DYNAMIC SELECTION: LLM council chooses best agent per task"
+    - "DIRECT EXECUTION: Selected agent receives exact original prompts"
+    - "OPTIONAL APPROVAL: User can enable/disable approval before execution"
+
+# =============================================================================
+# WORKFLOW
+# =============================================================================
+workflow:
+  step_1:
+    name: "Task Submission"
+    description: "User submits system_prompt + user_prompt to GodAgent"
+    
+  step_2:
+    name: "Council Selection"
+    description: |
+      LLM Council evaluates task and votes on best agent to lead.
+      3-stage process:
+      1. Collect: Query all council models in parallel
+      2. Rank: Each model ranks which agent fits best (anonymized)
+      3. Select: Chairman synthesizes final selection
+      
+  step_3:
+    name: "Approval (Optional)"
+    description: |
+      If approval_mode=ON: Present selection for human approval
+      If approval_mode=AUTO: Proceed immediately
+      
+  step_4:
+    name: "Direct Execution"
+    description: |
+      Call selected agent DIRECTLY with EXACT original prompts:
+      - system_prompt → passed as-is
+      - user_prompt → passed as-is
+      NO wrapper, NO modification - direct API call
+      
+  step_5:
+    name: "Full-Mesh Collaboration"
+    description: |
+      If agent needs help, it calls other agents:
+      - Claude calls Aider for git operations
+      - Aider calls Gemini for research
+      - Any agent calls any other as needed
+      
+  step_6:
+    name: "Decision Logging"
+    description: "All decisions logged for audit and feedback"
+
+# =============================================================================
+# AVAILABLE AGENTS
+# =============================================================================
+agents:
+  claude:
+    api: "Anthropic API"
+    strengths: ["deep reasoning", "coding", "long context"]
+    
+  gpt:
+    api: "OpenAI API / OpenRouter"
+    strengths: ["broad capabilities", "multimodal"]
+    
+  gemini:
+    api: "Google Generative AI API / OpenRouter"
+    strengths: ["1M+ token context", "search grounding", "multimodal"]
+    
+  grok:
+    api: "X.ai API / OpenRouter"
+    strengths: ["real-time info", "trends", "fast responses"]
+    
+  aider:
+    method: "CLI subprocess"
+    strengths: ["git integration", "code editing", "auto-commits"]
+    
+  codex:
+    method: "CLI subprocess"
+    strengths: ["sandboxed execution", "shell commands"]
+    
+  goose:
+    method: "CLI subprocess"
+    strengths: ["multi-step workflows", "autonomous tasks"]
+
+# =============================================================================
+# CONSENSUS MECHANISMS
+# =============================================================================
+consensus:
+  council_vote:
+    when: "Complex decisions, diverse perspectives needed"
+    process: "Collect → Rank → Synthesize"
+    
+  llm_as_judge:
+    when: "Fast selection between multiple responses"
+    process: "Detect task type → Apply criteria → Select best"
+    
+  self_consistency:
+    when: "High-confidence selection needed"
+    process: "Query N times → Majority vote → Confidence score"
+
+# =============================================================================
+# HUMAN CONTROLS
+# =============================================================================
+human_controls:
+  approval_modes:
+    - "AUTO: No approval needed, execute immediately"
+    - "APPROVE_ALL: Require approval for every action"
+    - "APPROVE_HIGH_RISK: Only approve dangerous operations"
+    
+  decision_logging:
+    fields: ["decision_type", "reasoning", "confidence", "risk_level"]
+    
+  feedback:
+    fields: ["rating", "suggestions", "was_helpful"]
+
+# =============================================================================
+# API
+# =============================================================================
+api:
+  style: "OpenAI-compatible"
+  endpoints:
+    - "POST /v1/chat/completions - Main task submission"
+    - "GET /v1/agents - List available agents"
+    - "GET /v1/decisions - View decision history"
+    - "POST /v1/feedback - Submit feedback"
+
+# =============================================================================
+# SUCCESS CRITERIA
+# =============================================================================
+success_criteria:
+  - "Any agent can call any other agent (full-mesh)"
+  - "Council dynamically selects best agent per task"
+  - "Selected agent receives exact original prompts"
+  - "Optional approval mode configurable by user"
+  - "All decisions logged for audit"

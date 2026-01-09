@@ -1,0 +1,366 @@
+# GodAgent Integration Guide
+# How to use underlying projects to build the agent mesh
+
+version: "1.0"
+last_updated: "2026-01-09"
+
+# =============================================================================
+# OVERVIEW
+# =============================================================================
+# This document specifies EXACTLY how GodAgent integrates with each underlying
+# project, including specific imports, function calls, and usage patterns.
+
+# =============================================================================
+# 1. llmCouncil INTEGRATION
+# =============================================================================
+llmCouncil:
+  path: "../llm-council/backend"
+  
+  # -------------------------------------------------------------------------
+  # What to Import
+  # -------------------------------------------------------------------------
+  imports: |
+    from llm_council.backend.council import (
+        run_full_council,          # Complete 3-stage process
+        stage1_collect_responses,  # Query all models in parallel
+        stage2_collect_rankings,   # Each model ranks responses
+        stage3_synthesize_final,   # Chairman synthesizes answer
+        calculate_aggregate_rankings,
+        parse_ranking_from_text,
+    )
+    from llm_council.backend.openrouter import (
+        query_model,               # Query single LLM
+        query_models_parallel,     # Query multiple LLMs in parallel
+    )
+    from llm_council.backend.config import (
+        COUNCIL_MODELS,            # ["openai/gpt-5.1", "google/gemini-3-pro", ...]
+        CHAIRMAN_MODEL,            # "google/gemini-3-pro-preview"
+        OPENROUTER_API_KEY,
+    )
+
+  # -------------------------------------------------------------------------
+  # How to Use for Agent Selection
+  # -------------------------------------------------------------------------
+  agent_selection_pattern: |
+    # GodAgent modifies the council process to SELECT an agent, not synthesize
+    
+    async def select_agent_via_council(task: str, available_agents: list) -> str:
+        """Use LLM council to vote on best agent for this task."""
+        
+        # Stage 1: Ask each council member which agent is best
+        selection_prompt = f"""
+        Task: {task}
+        Available Agents: {available_agents}
+        
+        Which agent is best suited for this task? Reply with just the agent name.
+        """
+        
+        responses = await stage1_collect_responses(selection_prompt)
+        
+        # Stage 2: Each model ranks the agent suggestions
+        rankings, label_map = await stage2_collect_rankings(selection_prompt, responses)
+        
+        # Stage 3: Chairman makes final selection
+        final = await stage3_synthesize_final(selection_prompt, responses, rankings)
+        
+        return final['response']  # The selected agent name
+
+# =============================================================================
+# 2. agentsParliament INTEGRATION
+# =============================================================================
+agentsParliament:
+  path: "../agents-parliament/src/agenters"
+  
+  # -------------------------------------------------------------------------
+  # Available MCP Servers and Their Tools
+  # -------------------------------------------------------------------------
+  mcp_servers:
+    claude_mcp_server:
+      file: "claude_mcp_server.py"
+      tools:
+        ask_claude:
+          signature: "ask_claude(prompt: str, model: str = 'sonnet') -> str"
+          description: "Simple prompt to Claude"
+          
+        ask_claude_with_system:
+          signature: "ask_claude_with_system(prompt: str, system_prompt: str, model: str = 'sonnet') -> str"
+          description: "Prompt with custom system prompt"
+          
+        ask_claude_json:
+          signature: "ask_claude_json(prompt: str, json_schema: str, model: str = 'sonnet') -> str"
+          description: "Get structured JSON response"
+          
+        ask_claude_in_directory:
+          signature: "ask_claude_in_directory(prompt: str, working_directory: str, model: str = 'sonnet') -> str"
+          description: "Run with directory context for file operations"
+          
+        ask_claude_with_tools:
+          signature: "ask_claude_with_tools(prompt: str, allowed_tools: str, working_directory: str = None) -> str"
+          description: "Run with specific tools enabled (e.g., 'Bash,Edit,Read')"
+          
+    gemini_mcp_server:
+      file: "gemini_mcp_server.py"
+      tools:
+        gemini_prompt:
+          signature: "gemini_prompt(prompt: str, working_directory: str = None, model: str = 'gemini-2.5-pro') -> str"
+          description: "Send prompt to Gemini"
+          
+        gemini_in_directory:
+          signature: "gemini_in_directory(prompt: str, working_directory: str, model: str = 'gemini-2.5-pro') -> str"
+          description: "Run with directory context"
+          
+        gemini_with_search:
+          signature: "gemini_with_search(prompt: str, working_directory: str = None) -> str"
+          description: "Run with Google Search grounding for real-time info"
+          
+    aider_mcp_server:
+      file: "aider_mcp_server.py"
+      tools:
+        aider_chat:
+          signature: "aider_chat(message: str, working_directory: str, files: str = None, model: str = 'claude-3-5-sonnet') -> str"
+          description: "Send message to make code changes"
+          
+        aider_architect:
+          signature: "aider_architect(message: str, working_directory: str, files: str = None) -> str"
+          description: "High-level planning and design mode"
+          
+        aider_ask:
+          signature: "aider_ask(question: str, working_directory: str, files: str = None) -> str"
+          description: "Ask questions without making changes"
+          
+    codex_mcp_server:
+      file: "codex_mcp_server.py"
+      tools:
+        codex_prompt:
+          signature: "codex_prompt(prompt: str, working_directory: str = None) -> str"
+          description: "Send prompt (suggest mode)"
+          
+        codex_full_auto:
+          signature: "codex_full_auto(prompt: str, working_directory: str) -> str"
+          description: "Run in full-auto sandboxed mode"
+          
+        codex_auto_edit:
+          signature: "codex_auto_edit(prompt: str, working_directory: str) -> str"
+          description: "Run in auto-edit mode"
+          
+    goose_mcp_server:
+      file: "goose_mcp_server.py"
+      tools:
+        goose_run:
+          signature: "goose_run(instructions: str, working_directory: str = None) -> str"
+          description: "Run with text instructions"
+          
+        goose_run_file:
+          signature: "goose_run_file(file_path: str, working_directory: str = None) -> str"
+          description: "Run with instructions from file"
+          
+        goose_run_recipe:
+          signature: "goose_run_recipe(recipe_name: str, variables: str = None) -> str"
+          description: "Run a predefined recipe"
+
+  # -------------------------------------------------------------------------
+  # How to Use: Direct Execution Pattern
+  # -------------------------------------------------------------------------
+  direct_execution_pattern: |
+    # GodAgent calls agents DIRECTLY with original prompts
+    
+    async def execute_agent(agent_name: str, system_prompt: str, user_prompt: str, working_dir: str = None):
+        """Execute selected agent with exact original prompts."""
+        
+        if agent_name == "claude":
+            return await ask_claude_with_system(
+                prompt=user_prompt,
+                system_prompt=system_prompt,
+            )
+            
+        elif agent_name == "gemini":
+            full_prompt = f"{system_prompt}\n\n{user_prompt}"
+            return await gemini_prompt(prompt=full_prompt, working_directory=working_dir)
+            
+        elif agent_name == "aider":
+            return await aider_chat(
+                message=user_prompt,
+                working_directory=working_dir,
+            )
+            
+        elif agent_name == "codex":
+            return await codex_full_auto(prompt=user_prompt, working_directory=working_dir)
+            
+        elif agent_name == "goose":
+            return await goose_run(instructions=user_prompt, working_directory=working_dir)
+
+# =============================================================================
+# 3. SuperAI INTEGRATION
+# =============================================================================
+SuperAI:
+  path: "../SuperAI/src/superai"
+  
+  # -------------------------------------------------------------------------
+  # What to Import
+  # -------------------------------------------------------------------------
+  imports: |
+    from superai.judge import LLMJudge
+    from superai.llm_client import LLMClient
+    from superai.config import Settings, get_settings
+    from superai.models import ModelResponse, ChatCompletionRequest
+
+  # -------------------------------------------------------------------------
+  # Key Classes and Methods
+  # -------------------------------------------------------------------------
+  LLMJudge:
+    methods:
+      _detect_task_type:
+        signature: "_detect_task_type(query: str) -> str"
+        returns: "'multiple_choice' | 'factual' | 'reasoning' | 'commonsense' | 'general'"
+        
+      select_best_response:
+        signature: "select_best_response(query: str, responses: List[ModelResponse]) -> Tuple[ModelResponse, Optional[str]]"
+        description: "Select best response using LLM-as-judge"
+        
+      select_best_with_confidence:
+        signature: "select_best_with_confidence(query: str, responses: List[ModelResponse], num_samples: int = 3) -> Tuple[ModelResponse, float, str]"
+        description: "Select with confidence via self-consistency voting"
+        
+  LLMClient:
+    methods:
+      query_model:
+        signature: "query_model(model_config, messages, temperature, max_tokens) -> ModelResponse"
+        
+      query_all_models:
+        signature: "query_all_models(messages, temperature, max_tokens) -> List[ModelResponse]"
+        description: "Query all enabled models in parallel"
+
+  # -------------------------------------------------------------------------
+  # How to Use for Agent Response Evaluation
+  # -------------------------------------------------------------------------
+  agent_evaluation_pattern: |
+    # Use SuperAI's judge to evaluate agent responses
+    
+    async def evaluate_agent_responses(task: str, agent_responses: dict) -> str:
+        """Use LLM-as-judge to select best agent response."""
+        
+        settings = get_settings()
+        judge = LLMJudge(settings)
+        
+        # Convert agent responses to ModelResponse format
+        responses = [
+            ModelResponse(model_name=agent, content=response)
+            for agent, response in agent_responses.items()
+        ]
+        
+        # Select best with confidence
+        best, confidence, reasoning = await judge.select_best_with_confidence(
+            query=task,
+            responses=responses,
+            num_samples=3  # Vote 3 times for consistency
+        )
+        
+        return best.content
+
+# =============================================================================
+# 4. seedGPT INTEGRATION
+# =============================================================================
+seedGPT:
+  path: "../seedGPT/apps/seed-planter-api"
+  
+  # -------------------------------------------------------------------------
+  # What to Import
+  # -------------------------------------------------------------------------
+  imports: |
+    # Decision logging
+    from seedgpt.utils.decision_logger import DecisionLogger, DecisionType, DecisionStatus
+    
+    # Agent orchestration (if needed)
+    from seed_backend.services.agent_orchestration_service import AgentOrchestrationService
+
+  # -------------------------------------------------------------------------
+  # Decision Types for GodAgent
+  # -------------------------------------------------------------------------
+  decision_types:
+    existing:
+      - "PR_MERGE"
+      - "ISSUE_CREATION"
+      - "TASK_PRIORITIZATION"
+      - "CODE_GENERATION"
+      - "DEPLOYMENT"
+      - "RESOURCE_ALLOCATION"
+    
+    to_add_for_godagent:
+      - "AGENT_SELECTION: Council selected an agent"
+      - "AGENT_EXECUTION: Agent executed a task"
+      - "INTER_AGENT_CALL: Agent called another agent"
+
+  # -------------------------------------------------------------------------
+  # How to Use for Decision Logging
+  # -------------------------------------------------------------------------
+  decision_logging_pattern: |
+    # Log all GodAgent decisions for audit and feedback
+    
+    async def log_godagent_decision(
+        decision_type: str,
+        title: str,
+        reasoning: str,
+        confidence: float,
+        alternatives: list = None
+    ):
+        logger = DecisionLogger(
+            agent_type="godagent",
+            project_id=PROJECT_ID
+        )
+        
+        decision_id = await logger.log_decision(
+            decision_type=decision_type,
+            title=title,
+            reasoning=reasoning,
+            confidence_score=confidence,
+            risk_level="medium",
+            alternatives_considered=alternatives or []
+        )
+        
+        return decision_id
+        
+    async def update_decision_outcome(decision_id: int, success: bool, result: str):
+        await logger.update_outcome(
+            decision_id=decision_id,
+            status=DecisionStatus.EXECUTED if success else DecisionStatus.FAILED,
+            outcome_status="success" if success else "failure",
+            outcome_data={"result": result}
+        )
+
+# =============================================================================
+# GODAGENT MAIN ORCHESTRATION FLOW
+# =============================================================================
+orchestration_flow: |
+  async def godagent_process_task(system_prompt: str, user_prompt: str, config: dict):
+      """Main GodAgent orchestration flow."""
+      
+      # 1. Log the incoming task
+      decision_id = await log_godagent_decision(
+          decision_type="AGENT_SELECTION",
+          title=f"Processing task: {user_prompt[:50]}...",
+          reasoning="Evaluating which agent is best for this task",
+          confidence=0.0,  # Will update after selection
+      )
+      
+      # 2. Use llmCouncil to select best agent
+      available_agents = ["claude", "gemini", "aider", "codex", "goose", "grok"]
+      selected_agent = await select_agent_via_council(user_prompt, available_agents)
+      
+      # 3. Optional: Check approval mode
+      if config.get("approval_mode") == "APPROVE_ALL":
+          approved = await get_user_approval(f"Execute with {selected_agent}?")
+          if not approved:
+              return {"status": "rejected", "agent": selected_agent}
+      
+      # 4. Execute selected agent DIRECTLY with original prompts
+      result = await execute_agent(
+          agent_name=selected_agent,
+          system_prompt=system_prompt,
+          user_prompt=user_prompt,
+          working_dir=config.get("working_directory")
+      )
+      
+      # 5. Log outcome
+      await update_decision_outcome(decision_id, success=True, result=result)
+      
+      return {"status": "success", "agent": selected_agent, "response": result}

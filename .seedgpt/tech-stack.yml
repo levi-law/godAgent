@@ -1,0 +1,175 @@
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║                      GodAgent - Technology Stack                           ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+version: "1.0"
+
+# =============================================================================
+# ARCHITECTURE
+# =============================================================================
+#
+#  ┌────────────────────────────────────────────────────────────────────────┐
+#  │                      GodAgent (This Project)                           │
+#  │                 Orchestrator + Entry Point                              │
+#  ├────────────────────────────────────────────────────────────────────────┤
+#  │                                                                        │
+#  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌────────────┐  │
+#  │  │ llmCouncil   │  │ agents-      │  │ SuperAI      │  │ seedGPT    │  │
+#  │  │              │  │ parliament   │  │              │  │            │  │
+#  │  │ LLM Council  │  │ Agent Mesh   │  │ Judge/Eval   │  │ Human Ctrl │  │
+#  │  └──────────────┘  └──────────────┘  └──────────────┘  └────────────┘  │
+#  │                                                                        │
+#  └────────────────────────────────────────────────────────────────────────┘
+#
+
+# =============================================================================
+# UNDERLYING PROJECTS (Runtime Dependencies)
+# =============================================================================
+# GodAgent uses these projects to provision and setup the agent mesh.
+# This keeps all projects active and avoids code duplication.
+
+underlying_projects:
+  llmCouncil:
+    path: "../llm-council"
+    provides:
+      - "OpenRouter client for multi-LLM access"
+      - "3-stage council voting (collect → rank → synthesize)"
+      - "Parallel async LLM querying"
+    usage: "Import council.py and openrouter.py modules"
+    features_to_add: []  # Any new features needed
+    
+  agentsParliament:
+    path: "../agents-parliament"
+    provides:
+      - "MCP servers for Claude, Gemini, Aider, Codex, Goose"
+      - "Agent-to-agent communication via MCP"
+      - "Full-mesh agent connectivity"
+    usage: "Run MCP servers, connect via MCP protocol"
+    features_to_add:
+      - "Agent discovery endpoint"
+      - "Inter-agent delegation protocol"
+    
+  SuperAI:
+    path: "../SuperAI"
+    provides:
+      - "LLM-as-judge selection"
+      - "Task-type detection"
+      - "Self-consistency voting"
+      - "OpenAI-compatible API"
+    usage: "Import judge.py and llm_client.py modules"
+    features_to_add:
+      - "Agent selection judge (not just LLM response selection)"
+    
+  seedGPT:
+    path: "../seedGPT"
+    provides:
+      - "DecisionLogger for tracking"
+      - "Approval workflow patterns"
+      - "User feedback system"
+      - "AgentOrchestrationService"
+    usage: "Import decision logging and approval modules"
+    features_to_add:
+      - "GodAgent-specific decision types"
+
+# =============================================================================
+# GODAGENT OWN CODE (This Project)
+# =============================================================================
+godagent_components:
+  orchestrator:
+    description: "Main entry point, coordinates all underlying projects"
+    responsibilities:
+      - "Receive user task (system_prompt + user_prompt)"
+      - "Call llmCouncil for agent selection"
+      - "Call agentsParliament to execute selected agent"
+      - "Call SuperAI for response evaluation if needed"
+      - "Call seedGPT for decision logging"
+      
+  config:
+    description: "Configuration for agent mesh"
+    items:
+      - "Available agents and their capabilities"
+      - "Council members and chairman"
+      - "Approval modes (AUTO, APPROVE_ALL, APPROVE_HIGH_RISK)"
+      
+  api:
+    description: "FastAPI endpoints wrapping the orchestrator"
+    endpoints:
+      - "POST /v1/chat/completions"
+      - "GET /v1/agents"
+      - "GET /v1/decisions"
+      
+  cli:
+    description: "Optional CLI for direct task submission"
+
+# =============================================================================
+# INTEGRATION DIAGRAM
+# =============================================================================
+#
+#  User Task
+#      │
+#      ▼
+#  ┌─────────────────────────────────────────────────────────────────┐
+#  │                     GodAgent Orchestrator                        │
+#  └─────────────────────────────────────────────────────────────────┘
+#      │
+#      ├──────────────────────┬──────────────────────┬───────────────┐
+#      ▼                      ▼                      ▼               ▼
+#  ┌─────────┐          ┌─────────────┐        ┌─────────┐    ┌─────────┐
+#  │llmCouncil│          │agents-      │        │SuperAI  │    │seedGPT  │
+#  │         │          │parliament   │        │         │    │         │
+#  │ Select  │          │ Execute     │        │ Evaluate│    │ Log     │
+#  │ Agent   │          │ Agent       │        │ Response│    │Decision │
+#  └─────────┘          └─────────────┘        └─────────┘    └─────────┘
+#
+
+# =============================================================================
+# DEPENDENCIES
+# =============================================================================
+dependencies:
+  python: "3.11+"
+  
+  core:
+    - "httpx: async HTTP client"
+    - "python-dotenv: environment config"
+    - "pydantic: data validation"
+    
+  api:
+    - "fastapi: API framework"
+    - "uvicorn: ASGI server"
+    
+  from_underlying_projects:
+    note: "Shared dependencies already installed in those projects"
+    - "litellm (SuperAI)"
+    - "mcp (agentsParliament)"
+    - "sqlalchemy (seedGPT)"
+
+# =============================================================================
+# FOLDER STRUCTURE
+# =============================================================================
+folder_structure:
+  godAgent/:
+    - src/: "GodAgent orchestrator code"
+    - config/: "Agent registry, council config"
+    - api/: "FastAPI endpoints"
+    - cli/: "Optional CLI"
+    - .seedgpt/: "Planning and management docs"
+    
+  integration:
+    note: "Use relative imports or package installation"
+    - "../llm-council/backend/": "council.py, openrouter.py"
+    - "../agents-parliament/src/": "MCP servers"
+    - "../SuperAI/src/": "judge.py, llm_client.py"
+    - "../seedGPT/apps/seed-planter-api/": "decision service"
+
+# =============================================================================
+# FRONTEND (Optional)
+# =============================================================================
+frontend:
+  framework: "React"
+  options:
+    - "Extend llmCouncil frontend"
+    - "Build new React app"
+  features:
+    - "Task submission form"
+    - "Agent selection visualization"
+    - "Decision history"
+    - "Feedback submission"

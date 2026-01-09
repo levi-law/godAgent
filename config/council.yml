@@ -1,0 +1,97 @@
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║                      GodAgent - Council Configuration                      ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+# Configuration for the LLM Council that selects the best agent for each task
+
+version: "1.0"
+
+# =============================================================================
+# COUNCIL MEMBERS
+# =============================================================================
+# These models vote on which agent is best for a given task
+
+council_models:
+  - model: "openai/gpt-4.1"
+    weight: 1.0
+    role: "member"
+    
+  - model: "google/gemini-2.5-pro"
+    weight: 1.0
+    role: "member"
+    
+  - model: "anthropic/claude-sonnet-4-20250514"
+    weight: 1.0
+    role: "member"
+    
+  - model: "x-ai/grok-3"
+    weight: 1.0
+    role: "member"
+
+# =============================================================================
+# CHAIRMAN
+# =============================================================================
+# The chairman synthesizes the final agent selection
+
+chairman:
+  model: "google/gemini-2.5-pro"
+  temperature: 0.3
+  max_tokens: 500
+
+# =============================================================================
+# SELECTION PROCESS
+# =============================================================================
+selection_process:
+  # Stage 1: Each council member suggests an agent
+  stage1:
+    prompt_template: |
+      You are evaluating which AI agent is best suited for a task.
+      
+      Task: {task}
+      
+      Available Agents:
+      {agents_list}
+      
+      Consider the task requirements and each agent's strengths.
+      Reply with ONLY the agent name that is best suited for this task.
+    temperature: 0.2
+    
+  # Stage 2: Each council member ranks the suggestions
+  stage2:
+    prompt_template: |
+      The following agents were suggested for this task:
+      {suggestions}
+      
+      Original Task: {task}
+      
+      Rank these suggestions from best to worst.
+      Reply with a numbered list: 1. best, 2. second best, etc.
+    temperature: 0.1
+    
+  # Stage 3: Chairman makes final selection
+  stage3:
+    prompt_template: |
+      You are the chairman making the final agent selection.
+      
+      Task: {task}
+      
+      Council Votes:
+      {votes}
+      
+      Rankings:
+      {rankings}
+      
+      Make the final selection. Reply with ONLY the agent name.
+    temperature: 0.0
+
+# =============================================================================
+# FALLBACK BEHAVIOR
+# =============================================================================
+fallback:
+  # Default agent if council cannot reach consensus
+  default_agent: "claude"
+  
+  # Minimum confidence to proceed without fallback
+  min_confidence: 0.6
+  
+  # Number of retries before fallback
+  max_retries: 2
