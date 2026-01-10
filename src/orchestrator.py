@@ -1,12 +1,17 @@
 """
 GodAgent Orchestrator
 
-Main orchestration engine that:
-1. Receives tasks from users
-2. Uses LLM Council to select the best agent
-3. Executes the selected agent with original prompts
-4. Manages inter-agent communication (full-mesh)
-5. Logs decisions and collects feedback
+ARCHITECTURE:
+=============
+Phase 1 - SELECTION: Council of LLMs votes on which agent to use
+Phase 2 - EXECUTION: Selected agent runs via CLI/SDK (not LLM API)
+
+This orchestrator coordinates:
+1. Receiving tasks from users
+2. Using Council to SELECT the best agent (via LLM voting)
+3. EXECUTING the selected agent via CLI (claude -p, aider --message, etc.)
+4. Managing inter-agent communication (full-mesh, via CLI)
+5. Logging decisions and collecting feedback
 """
 
 import asyncio
@@ -46,9 +51,9 @@ class ApprovalMode(Enum):
 class TaskStatus(Enum):
     """Status of a task in the orchestration pipeline."""
     PENDING = "pending"
-    COUNCIL_SELECTING = "council_selecting"
+    COUNCIL_SELECTING = "council_selecting"  # Phase 1: LLM council voting
     AWAITING_APPROVAL = "awaiting_approval"
-    EXECUTING = "executing"
+    EXECUTING = "executing"  # Phase 2: Agent running via CLI
     COMPLETED = "completed"
     FAILED = "failed"
     REJECTED = "rejected"
@@ -72,8 +77,8 @@ class Task:
 
 @dataclass
 class AgentSelection:
-    """Result of the council agent selection."""
-    selected_agent: str
+    """Result of the council agent selection (Phase 1)."""
+    selected_agent: str  # Agent to execute via CLI in Phase 2
     confidence: float
     reasoning: str
     votes: Dict[str, str] = field(default_factory=dict)
@@ -82,9 +87,9 @@ class AgentSelection:
 
 @dataclass
 class ExecutionResult:
-    """Result of agent execution."""
+    """Result of agent execution (Phase 2 - via CLI)."""
     task_id: str
-    agent: str
+    agent: str  # Agent that was executed via CLI
     response: str
     success: bool
     duration_ms: int
@@ -112,21 +117,21 @@ class Decision:
 
 class Orchestrator:
     """
-    Main GodAgent orchestrator.
+    Main GodAgent orchestrator - coordinates SELECTION and EXECUTION.
     
-    This is the central coordinator that:
-    - Receives user tasks
-    - Manages the council selection process
-    - Handles approval workflows
-    - Executes agents
-    - Logs decisions
+    Architecture:
+    - Phase 1: Council of LLMs SELECTS which agent to use
+    - Phase 2: Selected agent EXECUTES via CLI/SDK
+    
+    The council uses LLM API calls for voting decisions.
+    Execution is ALWAYS via agent CLI (claude, aider, codex, goose, etc.)
     
     Usage:
         orchestrator = Orchestrator()
         result = await orchestrator.process_task(
-            system_prompt="You are a helpful assistant.",
-            user_prompt="Write a Python script that...",
+            user_prompt="Write a Python script...",
         )
+        # Council selects "claude" -> Executor runs: claude -p "prompt"
     """
     
     def __init__(self):

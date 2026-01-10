@@ -75,15 +75,15 @@ class TestAgentMatcher:
         # Claude should be in top recommendations for coding
         assert "claude" in result.recommended_agents
         
-    def test_research_with_realtime_prefers_grok(self, matcher, research_analysis):
-        """Test that realtime research tasks rank grok highly."""
+    def test_research_with_realtime_prefers_gemini(self, matcher, research_analysis):
+        """Test that research tasks find gemini (which has search_grounding)."""
         result = matcher.match(research_analysis)
         
-        # Find grok's match
-        grok_match = next((m for m in result.matches if m.agent_name == "grok"), None)
+        # Find gemini's match (has search_grounding capability)
+        gemini_match = next((m for m in result.matches if m.agent_name == "gemini"), None)
         
-        assert grok_match is not None
-        # Grok should have a decent score for realtime research
+        assert gemini_match is not None
+        # Gemini should have a decent score for research with search grounding
         
     def test_all_agents_have_matches(self, matcher, coding_analysis):
         """Test that all agents are matched."""

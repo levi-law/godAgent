@@ -1,97 +1,60 @@
 # ╔═══════════════════════════════════════════════════════════════════════════╗
 # ║                      GodAgent - Agent Registry                             ║
 # ╚═══════════════════════════════════════════════════════════════════════════╝
-# Defines all available agents, their capabilities, and API configurations
+# 
+# CRITICAL: These are AGENTS, not LLMs.
+# Agents have CLI/SDK with agentic capabilities (tools, file access, execution).
+# They are NOT chat completion APIs.
+#
+# Pattern: Each agent is invoked via its native CLI, like seedpy's ClaudeAgent:
+#   claude -p "prompt" --output-format text
+#   gemini prompt "..."
+#   aider --message "..."
+#   codex --full-auto "..."
+#   goose run "..."
 
 version: "1.0"
 
 # =============================================================================
-# AVAILABLE AGENTS
+# AVAILABLE AGENTS (CLI/SDK ONLY - No LLM APIs)
 # =============================================================================
 agents:
   claude:
-    display_name: "Claude"
-    type: "api"
-    provider: "anthropic"
-    api_key_env: "ANTHROPIC_API_KEY"
-    models:
-      - "claude-sonnet-4-20250514"
-      - "claude-3-5-sonnet-20241022"
-      - "claude-3-opus-20240229"
-    default_model: "claude-sonnet-4-20250514"
+    display_name: "Claude Agent"
+    type: "cli"
+    command: "claude"
     capabilities:
       - "deep_reasoning"
       - "coding"
       - "long_context"
       - "analysis"
       - "writing"
+      - "file_operations"
+      - "tool_use"
     strengths:
       - "Complex reasoning and analysis"
       - "Code generation and review"
-      - "200K token context window"
+      - "Autonomous agentic execution"
     mcp_server: "claude_mcp_server"
     
   gemini:
-    display_name: "Gemini"
-    type: "api"
-    provider: "google"
-    api_key_env: "GOOGLE_API_KEY"
-    models:
-      - "gemini-2.5-pro"
-      - "gemini-2.0-flash"
-    default_model: "gemini-2.5-pro"
+    display_name: "Gemini Agent"
+    type: "cli"
+    command: "gemini"
     capabilities:
       - "research"
       - "multimodal"
       - "search_grounding"
       - "ultra_long_context"
+      - "file_operations"
     strengths:
       - "1M+ token context window"
       - "Google Search grounding for real-time info"
       - "Multimodal (images, video, audio)"
     mcp_server: "gemini_mcp_server"
     
-  gpt:
-    display_name: "GPT"
-    type: "openrouter"
-    provider: "openai"
-    models:
-      - "openai/gpt-4.1"
-      - "openai/gpt-4.1-mini"
-      - "openai/o1"
-    default_model: "openai/gpt-4.1"
-    capabilities:
-      - "general"
-      - "coding"
-      - "multimodal"
-      - "reasoning"
-    strengths:
-      - "Broad general capabilities"
-      - "Strong coding abilities"
-      - "Multimodal understanding"
-    mcp_server: null  # Uses OpenRouter
-    
-  grok:
-    display_name: "Grok"
-    type: "openrouter"
-    provider: "xai"
-    models:
-      - "x-ai/grok-3"
-      - "x-ai/grok-3-mini"
-    default_model: "x-ai/grok-3"
-    capabilities:
-      - "realtime_info"
-      - "trends"
-      - "fast_responses"
-      - "humor"
-    strengths:
-      - "Real-time information access"
-      - "Current trends and news"
-      - "Fast response times"
-    mcp_server: null  # Uses OpenRouter
-    
   aider:
-    display_name: "Aider"
+    display_name: "Aider Agent"
     type: "cli"
     command: "aider"
     capabilities:
@@ -107,7 +70,7 @@ agents:
     requires_working_directory: true
     
   codex:
-    display_name: "Codex CLI"
+    display_name: "Codex Agent"
     type: "cli"
     command: "codex"
     capabilities:
@@ -122,7 +85,7 @@ agents:
     requires_working_directory: true
     
   goose:
-    display_name: "Goose"
+    display_name: "Goose Agent"
     type: "cli"
     command: "goose"
     capabilities:
@@ -156,9 +119,13 @@ capability_definitions:
     description: "Git operations and version control"
     keywords: ["git", "commit", "branch", "merge", "pull request"]
     
-  realtime_info:
-    description: "Access to current/real-time information"
-    keywords: ["current", "latest", "today", "news", "trending"]
+  file_operations:
+    description: "Reading, writing, and manipulating files"
+    keywords: ["file", "read", "write", "create", "edit", "save"]
+    
+  tool_use:
+    description: "Using external tools and commands"
+    keywords: ["tool", "command", "execute", "run"]
     
   multimodal:
     description: "Processing images, video, or audio"

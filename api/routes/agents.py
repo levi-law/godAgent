@@ -2,6 +2,7 @@
 Agents Endpoint
 
 List and get information about available agents.
+AGENTS ARE NOT LLMs - they have CLI/SDK with agentic capabilities.
 """
 
 from fastapi import APIRouter, HTTPException
@@ -23,14 +24,13 @@ router = APIRouter()
 # =============================================================================
 
 class AgentInfo(BaseModel):
-    """Information about an agent."""
+    """Information about an agent (CLI-based, not LLM)."""
     name: str
     display_name: str
-    type: str
-    provider: Optional[str]
+    type: str  # Always "cli" for agents
+    command: Optional[str]  # CLI command (e.g., "claude", "aider")
     capabilities: List[str]
     strengths: List[str]
-    default_model: Optional[str]
     mcp_server: Optional[str]
     requires_working_directory: bool
 
@@ -51,6 +51,7 @@ async def list_agents():
     List all available agents.
     
     Returns information about each agent including capabilities and strengths.
+    All agents are CLI-based (not LLM APIs).
     """
     config = get_config()
     agents = []
@@ -61,10 +62,9 @@ async def list_agents():
             name=name,
             display_name=agent.display_name,
             type=agent.type,
-            provider=agent.provider,
+            command=agent.command,
             capabilities=agent.capabilities,
             strengths=agent.strengths,
-            default_model=agent.default_model,
             mcp_server=agent.mcp_server,
             requires_working_directory=agent.requires_working_directory,
         ))
@@ -78,7 +78,7 @@ async def get_agent(agent_name: str):
     Get information about a specific agent.
     
     Args:
-        agent_name: Name of the agent (e.g., "claude", "gemini")
+        agent_name: Name of the agent (e.g., "claude", "aider")
     """
     config = get_config()
     
@@ -91,10 +91,9 @@ async def get_agent(agent_name: str):
         name=agent_name,
         display_name=agent.display_name,
         type=agent.type,
-        provider=agent.provider,
+        command=agent.command,
         capabilities=agent.capabilities,
         strengths=agent.strengths,
-        default_model=agent.default_model,
         mcp_server=agent.mcp_server,
         requires_working_directory=agent.requires_working_directory,
     )

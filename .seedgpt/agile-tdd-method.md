@@ -1,3 +1,12 @@
+> **⚠️ CRITICAL: AGENT vs LLM DISTINCTION**
+>
+> GodAgent is an **AGENT ROUTER** that invokes AGENTS via their native **CLI/SDK**.
+> **AGENTS ARE NOT LLMs.** They have agentic capabilities (tools, file access, execution).
+> Examples: `claude -p prompt`, `gemini prompt "..."`, `aider --message "..."`
+> There are NO API fallbacks - CLI/SDK is the ONLY execution method.
+
+---
+
 On seedgpt the planting is done once. 
 from that point we will do this in a loop:
 1. status recap  - evaluate new client communication, where were at, update docs accordingly. check if we need to update the roadmap and PRD according to recent work. check the git status and commit the changes if needed. check current roadmap and PRD and client communication and current state of the project in the filesystem and update the sprint plan accordingly.

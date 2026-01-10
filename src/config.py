@@ -18,14 +18,15 @@ from pydantic import BaseModel, Field
 # =============================================================================
 
 class AgentConfig(BaseModel):
-    """Configuration for a single agent."""
+    """
+    Configuration for a single agent.
+    
+    CRITICAL: These are AGENTS, not LLMs.
+    Agents have CLI/SDK with agentic capabilities (tools, file access, execution).
+    """
     display_name: str
-    type: str  # api, cli, openrouter
-    provider: Optional[str] = None
-    api_key_env: Optional[str] = None
-    command: Optional[str] = None
-    models: Optional[List[str]] = None
-    default_model: Optional[str] = None
+    type: str  # Always "cli" for agents
+    command: Optional[str] = None  # CLI command (e.g., "claude", "aider")
     capabilities: List[str] = Field(default_factory=list)
     strengths: List[str] = Field(default_factory=list)
     mcp_server: Optional[str] = None

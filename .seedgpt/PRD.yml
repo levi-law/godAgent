@@ -7,14 +7,27 @@ status: complete
 last_updated: "2026-01-09"
 completed_date: "2026-01-09"
 
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║               TWO-PHASE ARCHITECTURE                                      ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+# Phase 1 - SELECTION: Council of LLMs votes on which AGENT to use
+#   - Uses LLM API calls for voting/decision-making
+#   - This is acceptable - it's selection, not execution
+#
+# Phase 2 - EXECUTION: Selected AGENT runs via CLI/SDK
+#   - AGENTS have agentic capabilities (tools, file access, execution)
+#   - Examples: claude -p prompt, aider --message, codex --full-auto
+#   - NOT LLM chat completions - these are FULL AUTONOMOUS AGENTS
+#
+# Reference: See PROJECT_BRIEF.md for the authoritative definition.
+
 # =============================================================================
 # VISION
 # =============================================================================
 vision:
   summary: |
     GodAgent is a full-mesh AI orchestration system where any agent can call any other agent.
-    An LLM council dynamically selects the best agent to lead each task, then that agent
-    is called DIRECTLY with the original prompts.
+    An LLM council dynamically SELECTS the best agent, then that agent EXECUTES via CLI.
 
   architecture_diagram: |
     ┌─────────────────────────────────────────────────────────────────────────┐
@@ -24,10 +37,9 @@ vision:
                                        │
                                        ▼
     ┌─────────────────────────────────────────────────────────────────────────┐
-    │                    LLM COUNCIL (Dynamic Selection)                       │
-    │   ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐                    │
-    │   │ GPT-5.1 │  │ Gemini  │  │ Claude  │  │  Grok   │ → Vote → Select   │
-    │   └─────────┘  └─────────┘  └─────────┘  └─────────┘                    │
+    │              PHASE 1: SELECTION (LLM Council Voting)                     │
+    │   Council of LLMs votes on which AGENT is best for this task            │
+    │   (Uses LLM API for voting decisions only)                               │
     └─────────────────────────────────────────────────────────────────────────┘
                                        │
                           ┌────────────┴─────────────┐
@@ -35,9 +47,9 @@ vision:
                           └────────────┬─────────────┘
                                        ▼
     ┌─────────────────────────────────────────────────────────────────────────┐
-    │                    DIRECT AGENT EXECUTION                                │
-    │   Selected agent receives EXACT original system_prompt + user_prompt     │
-    │   No wrapper, no modification - direct API call                          │
+    │              PHASE 2: EXECUTION (Agent CLI/SDK)                          │
+    │   Selected agent runs via its native CLI with agentic capabilities       │
+    │   Examples: claude -p "prompt", aider --message "task", goose run "..."  │
     └─────────────────────────────────────────────────────────────────────────┘
                                        │
                                        ▼

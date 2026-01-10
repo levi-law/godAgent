@@ -93,7 +93,7 @@ class TestOrchestrator:
         """Test getting agent info."""
         info = orchestrator.get_agent_info("claude")
         
-        assert info.display_name == "Claude"
+        assert info.display_name == "Claude Agent"
         assert "coding" in info.capabilities
         
     def test_get_agent_info_not_found(self, orchestrator):

@@ -1,8 +1,17 @@
 """
 GodAgent Mesh Coordinator
 
-Manages the full-mesh agent network where any agent can call any other agent.
-Handles inter-agent delegation, call depth tracking, and response routing.
+Manages the full-mesh agent network where any agent can delegate to any other.
+
+ARCHITECTURE:
+=============
+All inter-agent calls are executed via CLI:
+- claude -p "delegation prompt"
+- aider --message "..."
+- codex --full-auto "..."
+
+**This is NOT LLM-to-LLM chat.** Each agent runs as an autonomous CLI process
+with tools, file access, and agentic capabilities.
 """
 
 import asyncio
@@ -17,10 +26,10 @@ from .executor import AgentExecutor, ExecutionContext, ExecutionResult, get_agen
 
 @dataclass
 class InterAgentCall:
-    """Record of an inter-agent call."""
+    """Record of an inter-agent call (executed via CLI)."""
     id: str
     caller_agent: str
-    target_agent: str
+    target_agent: str  # Agent to execute via CLI
     prompt: str
     response: Optional[str] = None
     success: bool = False
@@ -33,7 +42,7 @@ class InterAgentCall:
 class MeshSession:
     """Tracks a mesh execution session."""
     id: str
-    initial_agent: str
+    initial_agent: str  # All agents executed via CLI
     initial_prompt: str
     calls: List[InterAgentCall] = field(default_factory=list)
     current_depth: int = 0
@@ -44,22 +53,22 @@ class MeshSession:
 
 class MeshCoordinator:
     """
-    Coordinates the full-mesh agent network.
+    Coordinates the full-mesh agent network via CLI execution.
+    
+    IMPORTANT: All agents execute via CLI/SDK, not LLM API.
+    Inter-agent calls are CLI subprocess invocations.
     
     Features:
-    - Any agent can call any other agent
+    - Any agent can delegate to any other agent (via CLI)
     - Call depth tracking to prevent infinite loops
     - Session management for audit trail
-    - Response aggregation
     
     Usage:
         mesh = MeshCoordinator()
         session = await mesh.start_session(
-            initial_agent="claude",
-            system_prompt="You are a helpful assistant.",
+            initial_agent="claude",  # Runs: claude -p "prompt"
             user_prompt="Research AI trends and write a summary.",
         )
-        print(session.final_response)
     """
     
     def __init__(self, max_depth: int = 5):

@@ -4,6 +4,13 @@
 version: "1.0"
 total_duration: "10 weeks"
 
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║               CRITICAL: AGENT vs LLM DISTINCTION                          ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+# This roadmap builds an AGENT ROUTER, NOT an LLM wrapper.
+# Agents are invoked via their native CLI/SDK (like seedpy's ClaudeAgent pattern).
+# Reference: seedpy/agents_router/claude_agent/claude_cli_agent.py
+
 # =============================================================================
 # TIMELINE OVERVIEW
 # =============================================================================

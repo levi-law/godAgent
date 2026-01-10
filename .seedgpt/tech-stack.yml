@@ -3,6 +3,20 @@
 # ╚═══════════════════════════════════════════════════════════════════════════╝
 version: "1.0"
 
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║                        TWO-PHASE ARCHITECTURE                              ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+# Phase 1 - SELECTION: Council of LLMs votes on which agent to use
+#   - Uses LLM API calls (OpenRouter) for voting/decision-making
+#   - This is acceptable - it's intelligent routing, not execution
+#
+# Phase 2 - EXECUTION: Selected AGENT runs via CLI/SDK
+#   - Uses agent CLIs: claude -p, aider --message, codex --full-auto, goose run
+#   - AGENTS have tools, file access, and agentic capabilities
+#   - NOT LLM chat completions - these are FULL AUTONOMOUS AGENTS
+#
+# The council uses LLM for SELECTION. Execution is ALWAYS CLI.
+
 # =============================================================================
 # ARCHITECTURE
 # =============================================================================

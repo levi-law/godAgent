@@ -1,31 +1,30 @@
 """
 GodAgent Agent Executor
 
-Executes selected agents with original prompts.
-Supports direct API calls, OpenRouter, and CLI subprocess execution.
-Integrates with agents-parliament MCP servers for unified interface.
+Executes agents via their native CLI/SDK.
+AGENTS ARE NOT LLMs - they have agentic capabilities (tools, file access, execution).
+
+All agents are invoked via CLI subprocess:
+  - claude -p "prompt" --output-format text
+  - gemini prompt "..."
+  - aider --message "..."
+  - codex --full-auto "..."
+  - goose run "..."
 """
 
 import asyncio
-import subprocess
-import sys
+import shutil
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from pathlib import Path
 from typing import Any, Dict, List, Optional
-
-import httpx
 
 from .config import get_config, AgentConfig
 
 
 class ExecutionMethod(Enum):
-    """How to execute an agent."""
-    DIRECT_API = "direct_api"      # Direct API call (Anthropic, Google, etc.)
-    OPENROUTER = "openrouter"      # Via OpenRouter
-    CLI_SUBPROCESS = "cli"         # CLI subprocess (aider, codex, goose)
-    MCP_SERVER = "mcp"             # Via MCP server
+    """How to execute an agent - CLI ONLY."""
+    CLI_SUBPROCESS = "cli"  # All agents use CLI
 
 
 @dataclass
@@ -35,7 +34,6 @@ class ExecutionContext:
     user_prompt: str
     working_directory: Optional[str] = None
     timeout: int = 300  # seconds
-    model_override: Optional[str] = None
     allowed_tools: Optional[List[str]] = None
 
 
@@ -47,37 +45,29 @@ class ExecutionResult:
     agent_name: str
     execution_method: ExecutionMethod
     duration_ms: int
-    model_used: Optional[str] = None
     error: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 class AgentExecutor:
     """
-    Executes agents with the original prompts.
+    Executes agents via their native CLI/SDK.
     
-    This is the core execution engine that:
-    - Routes to the correct execution method based on agent type
-    - Handles API calls for cloud agents (Claude, Gemini, GPT)
-    - Handles OpenRouter for unified LLM access
-    - Handles CLI subprocess for local agents (Aider, Codex, Goose)
-    - Supports MCP server integration
+    CRITICAL: Agents are NOT LLMs. They have agentic capabilities:
+    - Tools and file system access
+    - Autonomous execution
+    - Agentic loops
     
-    Usage:
-        executor = AgentExecutor()
-        result = await executor.execute(
-            agent_name="claude",
-            context=ExecutionContext(
-                system_prompt="You are a helpful assistant.",
-                user_prompt="Write hello world in Python."
-            )
-        )
+    All execution is via CLI subprocess (no HTTP API calls).
     """
     
     def __init__(self):
         """Initialize the executor."""
         self.config = get_config()
-        self._http_client = None
+        
+    def _is_cli_available(self, command: str) -> bool:
+        """Check if a CLI command is available on the system."""
+        return shutil.which(command) is not None
         
     async def execute(
         self,
@@ -85,7 +75,7 @@ class AgentExecutor:
         context: ExecutionContext
     ) -> ExecutionResult:
         """
-        Execute an agent with the given context.
+        Execute an agent via its CLI.
         
         Args:
             agent_name: Name of the agent to execute
@@ -98,226 +88,45 @@ class AgentExecutor:
         
         try:
             agent = self.config.get_agent(agent_name)
-            method = self._determine_execution_method(agent)
             
-            if method == ExecutionMethod.DIRECT_API:
-                result = await self._execute_direct_api(agent_name, agent, context)
-            elif method == ExecutionMethod.OPENROUTER:
-                result = await self._execute_openrouter(agent_name, agent, context)
-            elif method == ExecutionMethod.CLI_SUBPROCESS:
-                result = await self._execute_cli(agent_name, agent, context)
-            else:
-                result = await self._execute_mcp(agent_name, agent, context)
-                
+            # Check if CLI is available
+            cli_command = agent.command or agent_name
+            if not self._is_cli_available(cli_command):
+                return ExecutionResult(
+                    success=False,
+                    response="",
+                    agent_name=agent_name,
+                    execution_method=ExecutionMethod.CLI_SUBPROCESS,
+                    duration_ms=0,
+                    error=f"Agent CLI not installed: {cli_command}. Install it to use this agent.",
+                )
+            
+            # Route to the appropriate CLI handler
+            result = await self._execute_cli(agent_name, agent, context)
+            
             duration_ms = int((time.time() - start_time) * 1000)
             result.duration_ms = duration_ms
             return result
             
+        except KeyError:
+            duration_ms = int((time.time() - start_time) * 1000)
+            return ExecutionResult(
+                success=False,
+                response="",
+                agent_name=agent_name,
+                execution_method=ExecutionMethod.CLI_SUBPROCESS,
+                duration_ms=duration_ms,
+                error=f"Unknown agent: {agent_name}",
+            )
         except Exception as e:
             duration_ms = int((time.time() - start_time) * 1000)
             return ExecutionResult(
                 success=False,
                 response="",
                 agent_name=agent_name,
-                execution_method=ExecutionMethod.DIRECT_API,
+                execution_method=ExecutionMethod.CLI_SUBPROCESS,
                 duration_ms=duration_ms,
                 error=str(e),
-            )
-            
-    def _determine_execution_method(self, agent: AgentConfig) -> ExecutionMethod:
-        """Determine the best execution method for an agent."""
-        if agent.type == "cli":
-            return ExecutionMethod.CLI_SUBPROCESS
-        elif agent.type == "openrouter":
-            return ExecutionMethod.OPENROUTER
-        elif agent.type == "api":
-            # Could use MCP if available, otherwise direct API
-            if agent.mcp_server:
-                return ExecutionMethod.MCP_SERVER
-            return ExecutionMethod.DIRECT_API
-        else:
-            return ExecutionMethod.OPENROUTER  # Fallback
-            
-    async def _execute_direct_api(
-        self,
-        agent_name: str,
-        agent: AgentConfig,
-        context: ExecutionContext
-    ) -> ExecutionResult:
-        """Execute via direct API call."""
-        import os
-        
-        model = context.model_override or agent.default_model
-        
-        if agent.provider == "anthropic":
-            return await self._execute_anthropic(agent_name, model, context)
-        elif agent.provider == "google":
-            return await self._execute_google(agent_name, model, context)
-        else:
-            # Fallback to OpenRouter
-            return await self._execute_openrouter(agent_name, agent, context)
-            
-    async def _execute_anthropic(
-        self,
-        agent_name: str,
-        model: str,
-        context: ExecutionContext
-    ) -> ExecutionResult:
-        """Execute via Anthropic API."""
-        import os
-        
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        if not api_key:
-            return ExecutionResult(
-                success=False,
-                response="",
-                agent_name=agent_name,
-                execution_method=ExecutionMethod.DIRECT_API,
-                duration_ms=0,
-                model_used=model,
-                error="ANTHROPIC_API_KEY not set",
-            )
-            
-        async with httpx.AsyncClient(timeout=context.timeout) as client:
-            response = await client.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={
-                    "x-api-key": api_key,
-                    "anthropic-version": "2023-06-01",
-                    "content-type": "application/json",
-                },
-                json={
-                    "model": model,
-                    "max_tokens": 8192,
-                    "system": context.system_prompt,
-                    "messages": [{"role": "user", "content": context.user_prompt}],
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
-            
-            # Extract text from content blocks
-            content = data.get("content", [])
-            text_parts = [c.get("text", "") for c in content if c.get("type") == "text"]
-            response_text = "\n".join(text_parts)
-            
-            return ExecutionResult(
-                success=True,
-                response=response_text,
-                agent_name=agent_name,
-                execution_method=ExecutionMethod.DIRECT_API,
-                duration_ms=0,
-                model_used=model,
-            )
-            
-    async def _execute_google(
-        self,
-        agent_name: str,
-        model: str,
-        context: ExecutionContext
-    ) -> ExecutionResult:
-        """Execute via Google Generative AI API."""
-        import os
-        
-        api_key = os.getenv("GOOGLE_API_KEY")
-        if not api_key:
-            return ExecutionResult(
-                success=False,
-                response="",
-                agent_name=agent_name,
-                execution_method=ExecutionMethod.DIRECT_API,
-                duration_ms=0,
-                model_used=model,
-                error="GOOGLE_API_KEY not set",
-            )
-            
-        # Format prompt with system context
-        full_prompt = f"{context.system_prompt}\n\n{context.user_prompt}"
-        
-        async with httpx.AsyncClient(timeout=context.timeout) as client:
-            response = await client.post(
-                f"https://generativelanguage.googleapis.com/v1/models/{model}:generateContent",
-                headers={"Content-Type": "application/json"},
-                params={"key": api_key},
-                json={
-                    "contents": [{"parts": [{"text": full_prompt}]}],
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
-            
-            # Extract text from candidates
-            candidates = data.get("candidates", [])
-            if candidates:
-                parts = candidates[0].get("content", {}).get("parts", [])
-                response_text = "".join(p.get("text", "") for p in parts)
-            else:
-                response_text = ""
-                
-            return ExecutionResult(
-                success=True,
-                response=response_text,
-                agent_name=agent_name,
-                execution_method=ExecutionMethod.DIRECT_API,
-                duration_ms=0,
-                model_used=model,
-            )
-            
-    async def _execute_openrouter(
-        self,
-        agent_name: str,
-        agent: AgentConfig,
-        context: ExecutionContext
-    ) -> ExecutionResult:
-        """Execute via OpenRouter."""
-        import os
-        
-        api_key = os.getenv("OPENROUTER_API_KEY")
-        if not api_key:
-            return ExecutionResult(
-                success=False,
-                response="",
-                agent_name=agent_name,
-                execution_method=ExecutionMethod.OPENROUTER,
-                duration_ms=0,
-                error="OPENROUTER_API_KEY not set",
-            )
-            
-        model = context.model_override or agent.default_model
-        
-        messages = []
-        if context.system_prompt:
-            messages.append({"role": "system", "content": context.system_prompt})
-        messages.append({"role": "user", "content": context.user_prompt})
-        
-        async with httpx.AsyncClient(timeout=context.timeout) as client:
-            response = await client.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": model,
-                    "messages": messages,
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
-            
-            choices = data.get("choices", [])
-            if choices:
-                response_text = choices[0].get("message", {}).get("content", "")
-            else:
-                response_text = ""
-                
-            return ExecutionResult(
-                success=True,
-                response=response_text,
-                agent_name=agent_name,
-                execution_method=ExecutionMethod.OPENROUTER,
-                duration_ms=0,
-                model_used=model,
             )
             
     async def _execute_cli(
@@ -326,8 +135,12 @@ class AgentExecutor:
         agent: AgentConfig,
         context: ExecutionContext
     ) -> ExecutionResult:
-        """Execute via CLI subprocess."""
-        if agent_name == "aider":
+        """Route to the appropriate CLI handler."""
+        if agent_name == "claude":
+            return await self._execute_claude_cli(agent, context)
+        elif agent_name == "gemini":
+            return await self._execute_gemini_cli(agent, context)
+        elif agent_name == "aider":
             return await self._execute_aider(agent, context)
         elif agent_name == "codex":
             return await self._execute_codex(agent, context)
@@ -340,7 +153,132 @@ class AgentExecutor:
                 agent_name=agent_name,
                 execution_method=ExecutionMethod.CLI_SUBPROCESS,
                 duration_ms=0,
-                error=f"Unknown CLI agent: {agent_name}",
+                error=f"No CLI handler for agent: {agent_name}",
+            )
+
+    async def _execute_claude_cli(
+        self,
+        agent: AgentConfig,
+        context: ExecutionContext
+    ) -> ExecutionResult:
+        """
+        Execute Claude via CLI.
+        
+        Claude CLI is an AGENT with:
+        - File system access
+        - Tool use
+        - Autonomous execution
+        
+        Pattern from seedpy/agents_router/claude_agent/claude_cli_agent.py
+        """
+        # Build command: claude -p "prompt" --output-format text
+        cmd = ["claude", "-p", context.user_prompt, "--output-format", "text"]
+        
+        # Add system prompt if provided
+        if context.system_prompt:
+            cmd.extend(["--append-system-prompt", context.system_prompt])
+        
+        # Auto-accept edits for autonomous mode
+        cmd.extend(["--permission-mode", "bypassPermissions"])
+        
+        cwd = context.working_directory or "."
+        
+        try:
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                cwd=cwd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await asyncio.wait_for(
+                process.communicate(),
+                timeout=context.timeout
+            )
+            
+            response = stdout.decode() if stdout else ""
+            stderr_text = stderr.decode() if stderr else ""
+            
+            # Handle warnings vs errors
+            if stderr_text and process.returncode != 0:
+                stderr_lower = stderr_text.lower()
+                if not ("warn:" in stderr_lower or "warning:" in stderr_lower):
+                    return ExecutionResult(
+                        success=False,
+                        response=response,
+                        agent_name="claude",
+                        execution_method=ExecutionMethod.CLI_SUBPROCESS,
+                        duration_ms=0,
+                        error=f"Claude CLI error: {stderr_text}",
+                        metadata={"stderr": stderr_text},
+                    )
+            
+            return ExecutionResult(
+                success=process.returncode == 0,
+                response=response,
+                agent_name="claude",
+                execution_method=ExecutionMethod.CLI_SUBPROCESS,
+                duration_ms=0,
+                error=None if process.returncode == 0 else f"Exit code: {process.returncode}",
+            )
+        except asyncio.TimeoutError:
+            return ExecutionResult(
+                success=False,
+                response="",
+                agent_name="claude",
+                execution_method=ExecutionMethod.CLI_SUBPROCESS,
+                duration_ms=context.timeout * 1000,
+                error="Execution timeout",
+            )
+            
+    async def _execute_gemini_cli(
+        self,
+        agent: AgentConfig,
+        context: ExecutionContext
+    ) -> ExecutionResult:
+        """
+        Execute Gemini via CLI.
+        
+        Gemini CLI supports:
+          gemini prompt "your prompt here"
+        """
+        # Combine system and user prompt
+        full_prompt = context.user_prompt
+        if context.system_prompt:
+            full_prompt = f"{context.system_prompt}\n\n{context.user_prompt}"
+        
+        cmd = ["gemini", "prompt", full_prompt]
+        cwd = context.working_directory or "."
+        
+        try:
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                cwd=cwd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await asyncio.wait_for(
+                process.communicate(),
+                timeout=context.timeout
+            )
+            
+            response = stdout.decode() if stdout else ""
+            
+            return ExecutionResult(
+                success=process.returncode == 0,
+                response=response,
+                agent_name="gemini",
+                execution_method=ExecutionMethod.CLI_SUBPROCESS,
+                duration_ms=0,
+                error=None if process.returncode == 0 else f"Exit code: {process.returncode}",
+            )
+        except asyncio.TimeoutError:
+            return ExecutionResult(
+                success=False,
+                response="",
+                agent_name="gemini",
+                execution_method=ExecutionMethod.CLI_SUBPROCESS,
+                duration_ms=context.timeout * 1000,
+                error="Execution timeout",
             )
             
     async def _execute_aider(
@@ -348,14 +286,10 @@ class AgentExecutor:
         agent: AgentConfig,
         context: ExecutionContext
     ) -> ExecutionResult:
-        """Execute aider CLI."""
+        """Execute Aider CLI - git-aware code editing agent."""
         cmd = ["aider", "--message", context.user_prompt, "--yes"]
+        cwd = context.working_directory or "."
         
-        if context.working_directory:
-            cwd = context.working_directory
-        else:
-            cwd = "."
-            
         try:
             process = await asyncio.create_subprocess_exec(
                 *cmd,
@@ -395,14 +329,10 @@ class AgentExecutor:
         agent: AgentConfig,
         context: ExecutionContext
     ) -> ExecutionResult:
-        """Execute codex CLI."""
+        """Execute Codex CLI - sandboxed autonomous coding agent."""
         cmd = ["codex", "--full-auto", context.user_prompt]
+        cwd = context.working_directory or "."
         
-        if context.working_directory:
-            cwd = context.working_directory
-        else:
-            cwd = "."
-            
         try:
             process = await asyncio.create_subprocess_exec(
                 *cmd,
@@ -440,14 +370,10 @@ class AgentExecutor:
         agent: AgentConfig,
         context: ExecutionContext
     ) -> ExecutionResult:
-        """Execute goose CLI."""
+        """Execute Goose CLI - multi-step workflow agent."""
         cmd = ["goose", "run", context.user_prompt]
+        cwd = context.working_directory or "."
         
-        if context.working_directory:
-            cwd = context.working_directory
-        else:
-            cwd = "."
-            
         try:
             process = await asyncio.create_subprocess_exec(
                 *cmd,
@@ -479,17 +405,6 @@ class AgentExecutor:
                 duration_ms=context.timeout * 1000,
                 error="Execution timeout",
             )
-            
-    async def _execute_mcp(
-        self,
-        agent_name: str,
-        agent: AgentConfig,
-        context: ExecutionContext
-    ) -> ExecutionResult:
-        """Execute via MCP server (placeholder for future integration)."""
-        # For now, fall back to direct API
-        # In full implementation, would connect to MCP server
-        return await self._execute_direct_api(agent_name, agent, context)
 
 
 # =============================================================================

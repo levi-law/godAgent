@@ -1,15 +1,44 @@
-# PROJECT BRIEF
+# GodAgent - Project Brief
 
-This project combines the best of all my previous projects - llmCouncil, agentsParliament and superAI + seedgpt into 1 project that allows the user to interact with 1 god agent which controls all the other agents and propegates their actions.
+## Overview
+GodAgent combines llmCouncil, agentsParliament, superAI, and seedGPT into one unified orchestrator that allows users to interact with a "god agent" which controls all other agents.
 
-It uses principals and architecture from llmCouncil and possibly agentsParliament and extends it with the capabilities of superAI and seedgpt.
+---
 
-The project tries to be as full-mesh as possible, with all agents interacting with each other. so for start we will provision the folder structure such that all agnets can do so, and each agent will be able to call the others and use their capabilities. It uses LLM council to choose the starting agent that will be used to be the god agent.
+## Two-Phase Architecture
 
+### Phase 1: SELECTION (Council Voting)
+- Council of LLMs votes on which **AGENT** is best for the task
+- Uses LLM API calls for voting/decision-making only
+- This is intelligent routing, not execution
 
-so once we choose the agent (and user possibaly approved, or has it configured to auto mode) - the direct agent should be used, not any other sub-project... e.g if claude is choosen then we will call claude with the exact syste and user prompts that we were called with, and the llmcouncil/agentsparliament/superai/seedgot projectgs are just a REFERENCE of how to do it and we want to take it and use thier code (copy paoased if needed) in our app. 
-the godagent itself is completely independed of the other projects and only uses thier ideas and code
+### Phase 2: EXECUTION (Agent CLI/SDK)
+- Selected **AGENT** runs via its native CLI
+- AGENTS have agentic capabilities (tools, file access, autonomous execution)
+- Examples: `claude -p prompt`, `aider --message`, `codex --full-auto`, `goose run`
 
-# SEEDGPT
-See .seedgpt folder for high level management and planning of the project.
+**The council uses LLM for SELECTION. Execution is ALWAYS CLI.**
 
+---
+
+## Critical Distinction
+
+| Component | Method | Purpose |
+|-----------|--------|---------|
+| Council | LLM API | Vote on which agent to use |
+| Executor | CLI/SDK | Run the selected agent |
+
+**AGENTS are NOT LLMs.** They have:
+- Tools and file system access
+- Autonomous execution capabilities
+- Agentic loops (not just text in/out)
+
+---
+
+## Full-Mesh Architecture
+All agents can delegate to any other agent via CLI execution, creating a collaborative mesh network.
+
+---
+
+## Documentation
+See `.seedgpt` folder for high-level management and planning.

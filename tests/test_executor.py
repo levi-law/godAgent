@@ -1,10 +1,12 @@
 """
 Tests for GodAgent Agent Executor
+
+CRITICAL: Agents are NOT LLMs. All execution is via CLI subprocess.
 """
 
 import pytest
 from pathlib import Path
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import patch
 import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -52,7 +54,7 @@ class TestExecutionResult:
             success=True,
             response="Hello, World!",
             agent_name="claude",
-            execution_method=ExecutionMethod.DIRECT_API,
+            execution_method=ExecutionMethod.CLI_SUBPROCESS,
             duration_ms=150,
         )
         
@@ -67,13 +69,13 @@ class TestExecutionResult:
             success=False,
             response="",
             agent_name="gemini",
-            execution_method=ExecutionMethod.OPENROUTER,
+            execution_method=ExecutionMethod.CLI_SUBPROCESS,
             duration_ms=50,
-            error="API key not set",
+            error="CLI not installed",
         )
         
         assert not result.success
-        assert result.error == "API key not set"
+        assert result.error == "CLI not installed"
 
 
 class TestAgentExecutor:
@@ -87,28 +89,19 @@ class TestAgentExecutor:
     def test_executor_initialization(self, executor):
         """Test that executor initializes correctly."""
         assert executor.config is not None
-        
-    def test_determine_execution_method_cli(self, executor):
-        """Test determining CLI execution method."""
-        aider = executor.config.get_agent("aider")
-        method = executor._determine_execution_method(aider)
-        
-        assert method == ExecutionMethod.CLI_SUBPROCESS
-        
-    def test_determine_execution_method_api(self, executor):
-        """Test determining API execution method."""
-        claude = executor.config.get_agent("claude")
-        method = executor._determine_execution_method(claude)
-        
-        # Claude has MCP server configured, so it should use MCP
-        assert method in [ExecutionMethod.MCP_SERVER, ExecutionMethod.DIRECT_API]
-        
-    def test_determine_execution_method_openrouter(self, executor):
-        """Test determining OpenRouter execution method."""
-        grok = executor.config.get_agent("grok")
-        method = executor._determine_execution_method(grok)
-        
-        assert method == ExecutionMethod.OPENROUTER
+    
+    def test_is_cli_available(self, executor):
+        """Test CLI availability check."""
+        # 'python' should be available
+        assert executor._is_cli_available("python") is True
+        # Fake command should not be available
+        assert executor._is_cli_available("definitely_not_a_real_command_12345") is False
+    
+    def test_all_agents_are_cli_type(self, executor):
+        """Test that all agents have type=cli (agents are NOT LLMs)."""
+        for name in executor.config.get_agent_names():
+            agent = executor.config.get_agent(name)
+            assert agent.type == "cli", f"Agent {name} should be type=cli, not {agent.type}"
         
     @pytest.mark.asyncio
     async def test_execute_returns_result(self, executor):
@@ -118,25 +111,25 @@ class TestAgentExecutor:
             user_prompt="Test prompt",
         )
         
-        # This will fail without API keys, but should return a result
+        # Execute will try CLI - result depends on CLI availability
         result = await executor.execute("claude", context)
         
         assert isinstance(result, ExecutionResult)
         assert result.agent_name == "claude"
+        assert result.execution_method == ExecutionMethod.CLI_SUBPROCESS
         
     @pytest.mark.asyncio
-    async def test_execute_handles_missing_api_key(self, executor):
-        """Test that execute handles missing API keys gracefully."""
+    async def test_execute_unknown_agent(self, executor):
+        """Test that unknown agent returns error."""
         context = ExecutionContext(
             system_prompt="",
             user_prompt="Test",
         )
         
-        with patch.dict('os.environ', {}, clear=True):
-            result = await executor.execute("claude", context)
-            
-        # Should fail gracefully with an error
-        assert not result.success or result.error is not None
+        result = await executor.execute("unknown_agent", context)
+        
+        assert not result.success
+        assert "Unknown agent" in result.error
 
 
 class TestGlobalExecutor:

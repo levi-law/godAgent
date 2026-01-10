@@ -1,12 +1,20 @@
 # ╔═══════════════════════════════════════════════════════════════════════════╗
 # ║                      GodAgent - Council Configuration                      ║
 # ╚═══════════════════════════════════════════════════════════════════════════╝
-# Configuration for the LLM Council that selects the best agent for each task
+#
+# ARCHITECTURE NOTE:
+# ==================
+# The council uses LLM API calls for SELECTION/VOTING only.
+# These models decide WHICH agent to use, not execute the task themselves.
+# After selection, the chosen agent EXECUTES via its native CLI.
+#
+# Example flow:
+#   Council votes -> "claude" selected -> Executor runs: claude -p "prompt"
 
 version: "1.0"
 
 # =============================================================================
-# COUNCIL MEMBERS
+# COUNCIL MEMBERS (LLM models for voting)
 # =============================================================================
 # These models vote on which agent is best for a given task
 

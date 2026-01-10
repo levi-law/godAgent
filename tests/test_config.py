@@ -51,7 +51,8 @@ class TestConfigLoader:
         for name, agent in loader.agents.items():
             assert isinstance(agent, AgentConfig)
             assert agent.display_name
-            assert agent.type in ["api", "cli", "openrouter"]
+            # All agents are CLI type (agents are NOT LLMs)
+            assert agent.type == "cli"
             assert isinstance(agent.capabilities, list)
             
     def test_get_agent(self, loader):
@@ -59,8 +60,9 @@ class TestConfigLoader:
         loader.load()
         
         claude = loader.get_agent("claude")
-        assert claude.display_name == "Claude"
+        assert claude.display_name == "Claude Agent"
         assert "coding" in claude.capabilities
+        assert claude.type == "cli"  # Agents are CLI, not LLM
         
     def test_get_agent_not_found(self, loader):
         """Test KeyError for nonexistent agent."""

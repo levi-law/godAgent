@@ -3,6 +3,12 @@
 # ╚═══════════════════════════════════════════════════════════════════════════╝
 version: "1.0"
 
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║               CRITICAL: AGENT vs LLM DISTINCTION                          ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+# All agents below are invoked via their NATIVE CLI/SDK, not as LLM models.
+# Pattern: Like seedpy's ClaudeAgent (`claude -p prompt` via subprocess).
+# These are AUTONOMOUS EXECUTORS with tools, file access, and execution power.
 # =============================================================================
 # FULL-MESH TOPOLOGY (Every agent can call every other agent)
 # =============================================================================

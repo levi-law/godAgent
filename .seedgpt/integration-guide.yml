@@ -4,6 +4,23 @@
 version: "1.0"
 last_updated: "2026-01-09"
 
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║               CRITICAL: AGENT vs LLM DISTINCTION                          ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+# THIS IS NOT A CHAT COMPLETIONS INTEGRATION.
+#
+# GodAgent invokes agents via their NATIVE CLI/SDK, following the pattern
+# established in seedpy (see: seedpy/agents_router/claude_agent/claude_cli_agent.py):
+#
+#   ClaudeAgent wraps: `claude -p prompt --output-format json` (subprocess)
+#   Aider wraps: `aider --message "..." --yes` (subprocess)  
+#   Codex wraps: `codex --full-auto "..."` (subprocess)
+#   Goose wraps: `goose run "..."` (subprocess)
+#
+# These are AUTONOMOUS AGENTS with file system access, tool use, and execution
+# capabilities - not simple LLM API calls. The council (llmCouncil) selects
+# WHICH agent to invoke, then that agent runs via its native CLI/SDK.
+
 # =============================================================================
 # OVERVIEW
 # =============================================================================

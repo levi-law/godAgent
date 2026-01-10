@@ -1,9 +1,21 @@
 """
 GodAgent Council Selector
 
-Uses the LLM Council from llm-council project to select the best agent
-for a given task. Adapts the council's 3-stage process for agent selection
-instead of response synthesis.
+ARCHITECTURE NOTE:
+==================
+GodAgent has a two-phase architecture:
+
+Phase 1 - SELECTION (this module):
+  - Council of LLMs votes on which AGENT is best for the task
+  - Uses LLM API calls for voting/decision-making only
+  - This is NOT execution - just intelligent routing
+
+Phase 2 - EXECUTION (executor.py):
+  - The selected AGENT runs via its native CLI/SDK
+  - AGENTS have agentic capabilities (tools, file access, execution)
+  - Examples: claude -p prompt, aider --message, codex --full-auto
+
+The council uses LLM APIs to SELECT. Execution is always CLI.
 """
 
 import asyncio
@@ -24,9 +36,9 @@ from .agent_matcher import MatchResult, get_agent_matcher
 
 @dataclass
 class CouncilVote:
-    """A single council member's vote."""
-    model: str
-    selected_agent: str
+    """A single council member's vote for which AGENT to use."""
+    model: str  # LLM model that voted
+    selected_agent: str  # Name of the agent to execute via CLI
     reasoning: str
 
 
@@ -41,7 +53,7 @@ class CouncilRanking:
 @dataclass 
 class CouncilSelection:
     """Result of the council selection process."""
-    selected_agent: str
+    selected_agent: str  # Agent to execute via CLI
     confidence: float
     reasoning: str
     votes: List[CouncilVote]
@@ -52,20 +64,21 @@ class CouncilSelection:
 
 class CouncilSelector:
     """
-    Uses LLM Council to select the best agent for a task.
+    Council of LLMs that SELECTS which AGENT to use for a task.
     
-    This adapts the 3-stage council process:
-    - Stage 1: Each council member suggests an agent
-    - Stage 2: Each council member ranks the suggestions
-    - Stage 3: Chairman makes final selection
+    IMPORTANT: This module uses LLM APIs for VOTING/SELECTION only.
+    The selected agent is then EXECUTED via CLI in executor.py.
+    
+    Process:
+    1. Analyze task requirements
+    2. Council members vote on best agent
+    3. Chairman synthesizes final selection
+    4. Return agent name -> executor runs via CLI
     
     Usage:
         selector = CouncilSelector()
-        result = await selector.select_agent(
-            user_prompt="Write a Python script to fetch weather data",
-            system_prompt="You are a helpful coding assistant"
-        )
-        print(result.selected_agent)  # e.g., "claude"
+        result = await selector.select_agent("Write a Python script")
+        # result.selected_agent = "claude" -> executor calls: claude -p prompt
     """
     
     def __init__(self, use_mock: bool = False):
