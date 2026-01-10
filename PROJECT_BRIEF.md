@@ -9,13 +9,18 @@ LastAgent combines llmCouncil, agentsParliament, superAI, and seedGPT into one u
 
 ### Phase 1: SELECTION (Council Voting)
 - Council of LLMs votes on which **AGENT** is best for the task
-- Uses LLM API calls for voting/decision-making only
+- Uses LLM API calls for voting/decision-making only, or agentic calls to other agents
 - This is intelligent routing, not execution
+- At the end - the orchestrator agent is selected.
 
 ### Phase 2: EXECUTION (Agent CLI/SDK)
 - Selected **AGENT** runs via its native CLI
 - AGENTS have agentic capabilities (tools, file access, autonomous execution)
 - Examples: `claude -p prompt`, `aider --message`, `codex --full-auto`, `goose run`
+
+### Phase 3: Communication
+- Selected **AGENT** runs via its native CLI
+- The agent can call other agents via CLI commands
 
 **The council uses LLM for SELECTION. Execution is ALWAYS CLI.**
 
