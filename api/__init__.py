@@ -9,16 +9,18 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .routes import chat, agents, decisions, feedback
+from src.observability import setup_logging_middleware, get_logger
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Handle startup and shutdown events."""
     # Startup
-    print("🚀 LastAgent API starting up...")
+    logger = get_logger("app.lifecycle")
+    logger.info("application_starting", service="lastagent-api")
     yield
     # Shutdown
-    print("👋 LastAgent API shutting down...")
+    logger.info("application_stopping", service="lastagent-api")
 
 
 app = FastAPI(
@@ -27,6 +29,9 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+# Setup enterprise logging (must be before CORS)
+setup_logging_middleware(app)
 
 # CORS middleware
 app.add_middleware(
@@ -63,4 +68,6 @@ async def root():
 @app.get("/health")
 async def health():
     """Health check endpoint."""
+    logger = get_logger("api.health")
+    logger.debug("health_check_received")
     return {"status": "healthy"}

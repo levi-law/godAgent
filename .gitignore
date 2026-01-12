@@ -54,3 +54,7 @@ node_modules/
 /playwright/.cache/
 /playwright/.auth/
 gcp-sa-key.json
+
+# Logs
+logs/
+*.log
