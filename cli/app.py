@@ -446,10 +446,23 @@ def mcp():
         console.print("\n[dim]MCP server stopped.[/]")
 
 
-@app.command(hidden=True)
+@app.command()
 def init():
-    """Installation wizard (Sprint 9.3)."""
-    console.print("[dim]Installation wizard coming in Sprint 9.3[/]")
+    """
+    Run the installation wizard.
+    
+    Guides you through:
+    - Checking installed agent CLIs
+    - Verifying API key configuration
+    - Setting default preferences
+    - Creating ~/.lastagent/config.yml
+    
+    [bold cyan]Usage:[/]
+    
+        lastagent init
+    """
+    from cli.commands.init import run_init_wizard
+    run_init_wizard()
 
 
 if __name__ == "__main__":
